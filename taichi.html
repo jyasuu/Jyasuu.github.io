@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <html>
 
 
@@ -115,3 +116,122 @@ body, html {
 }
 </style></body>
 </html>
+=======
+<html>
+
+
+
+<body>
+
+
+ <input type="file" accept="image/*" capture="camera">
+<a href="#">
+<div id="foreign"> 
+<div id="taijhi">
+</div> 
+<div id="yangou">
+
+<div id="yin">
+</div> 
+</div> 
+<div id="yingou">
+<div id="yan">
+</div> 
+</div>
+</div></a>
+
+<style>
+body, html {
+  height: 100%;
+}
+
+#foreign {
+    display: block;
+    width: 100px;
+    height: 100px;
+    position: absolute;
+    }
+
+#taijhi {
+    display: block;
+    width: 100px;
+    height: 100px;
+    position: absolute;
+    
+    background: linear-gradient(0deg, black 50%, white 50%);
+    animation: taichiturn 4s linear infinite; 
+    border-radius: 50px;}
+
+#yingou{
+			position: absolute;
+			 left: 25px;
+    top: 25px;
+  background:white;
+  
+    width: 50px;
+    height: 50px;
+    border-radius: 25px;
+            animation: yingouturn 4s linear infinite; 
+    
+}
+
+#yangou{
+			position: absolute;
+			 left: 25px;
+    top: 25px;
+  background:black;
+    width: 50px;
+    height: 50px;
+    border-radius: 25px;
+    
+            animation: yangouturn 4s linear infinite; 
+}
+
+#yin{
+			position: relative;
+
+  background:white;
+  
+    width: 10px;
+    height: 10px;
+    top: 50%;
+    left: 50%;
+                                        -webkit-transform: translate(-50%, -50%);
+    border-radius: 5px;
+}
+
+#yan{
+			position: relative;
+
+  background:black;
+  
+    width: 10px;
+    height: 10px;
+    top: 50%;
+    left: 50%;
+                                        -webkit-transform: translate(-50%, -50%);
+    border-radius: 5px;
+}
+
+@keyframes yingouturn {
+    0% { transform: rotate(0deg) translateX(25px) rotate(0deg); }
+    100%   { transform: rotate(360deg) translateX(25px) rotate(-360deg); }
+}
+
+
+@keyframes yangouturn {
+    0% { transform: rotate(0deg) translateX(-25px) rotate(0deg); }
+    100%   { transform: rotate(360deg) translateX(-25px) rotate(-360deg); }
+}
+
+
+
+@keyframes taichiturn {
+    0% { 
+    transform: rotate(0deg);}
+    100% { 
+    transform: rotate(360deg);}
+}
+</style></body>
+</html>
+>>>>>>> 05ac1e01b508dc5879617a3f504db2ddc4e8fd63
