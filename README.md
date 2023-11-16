@@ -121,3 +121,28 @@ Long, single-line code blocks should not wrap. They should horizontally scroll i
 ```
 The final element.
 ```
+
+
+
+### asciinema
+
+[asciinema](https://github.com/asciinema/asciinema)
+
+```sh
+python3 -m pip install asciinema
+asciinema rec first.cast
+asciinema play -s 2 first.cast
+asciinema upload first.cast
+
+curl https://sh.rustup.rs -sSf | sh
+source "$HOME/.cargo/env"
+cargo install --git https://github.com/asciinema/agg
+
+agg first.cast first.gif
+```
+
+[![demo](https://asciinema.org/a/4I6tX2JKlIySxyizGi32nWYFh.svg)](https://asciinema.org/a/4I6tX2JKlIySxyizGi32nWYFh?autoplay=1)
+
+
+
+[![demo](first.gif)](https://asciinema.org/a/4I6tX2JKlIySxyizGi32nWYFh?autoplay=1)
