@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   /* config options here */
   output: 'export',
   distDir: 'build',
-  assetPrefix: '/next'
+  // assetPrefix: '/next'
 };
 
 export default nextConfig;
