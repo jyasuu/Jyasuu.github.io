@@ -1,5 +1,4 @@
 "use client";
-import Image from "next/image";
 import { FaGithub, FaGitlab, FaLinkedin } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 
