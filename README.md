@@ -42,3 +42,10 @@ npm run build
 rm -rf _next
 mv ./build/* ./ 
 ```
+
+
+## TODO
+
+- [] rs-api containerize
+- [] deploy render.com
+- [] refactor
