@@ -43,9 +43,15 @@ rm -rf _next
 mv ./build/* ./ 
 ```
 
+## Docker
+
+```sh
+docker run --rm -p 7000:7000 -e PORT=7000  jyasu/rs-api
+```
 
 ## TODO
 
-- [] rs-api containerize
 - [] deploy render.com
 - [] refactor
+
+
