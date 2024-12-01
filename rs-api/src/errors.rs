@@ -11,6 +11,9 @@ pub enum ServiceError {
     #[error("Ollama API error: {0}")]
     OllamaApiError(String),
 
+    #[error("XAI API error: {0}")]
+    XaiApiError(String),
+
     #[error("Internal server error")]
     InternalServerError,
 }
@@ -22,6 +25,9 @@ impl ResponseError for ServiceError {
                 "error": "Invalid request"
             })),
             ServiceError::OllamaApiError(msg) => HttpResponse::InternalServerError().json(json!({
+                "error": msg
+            })),
+            ServiceError::XaiApiError(msg) => HttpResponse::InternalServerError().json(json!({
                 "error": msg
             })),
             ServiceError::InternalServerError => HttpResponse::InternalServerError().json(json!({

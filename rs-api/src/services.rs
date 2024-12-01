@@ -69,3 +69,39 @@ pub async fn get_ollama_models() -> Result<Vec<String>, ServiceError> {
 
     Ok(model_names)
 }
+
+
+
+pub async fn send_chat_to_xai(request: &crate::models::xai::ChatRequest) -> Result<crate::models::xai::ChatResponse, ServiceError> {
+    // Retrieve x.ai API URL from environment, with a default fallback
+    let xai_api_url = env::var("XAI_API_URL").unwrap_or_else(|_| "https://api.x.ai".to_string());
+    let auth_token = env::var("XAI_AUTH_TOKEN").map_err(|_| ServiceError::XaiApiError("Missing XAI_AUTH_TOKEN environment variable".to_string()))?;
+
+
+    let client = Client::new();
+
+    // Create the request payload
+    let xai_payload = json!({
+        "messages": request.messages,
+        "model": request.model,
+        "stream": request.stream,
+        "temperature": request.temperature,
+    });
+
+    // Send the POST request to the x.ai API
+    let response = client
+        .post(format!("{}/v1/chat/completions", xai_api_url))
+        .bearer_auth(auth_token)
+        .json(&xai_payload)
+        .send()
+        .await
+        .map_err(|e| ServiceError::XaiApiError(e.to_string()))?;
+
+    // Parse the response into ChatResponse
+    let chat_response = response
+        .json::<crate::models::xai::ChatResponse>()
+        .await
+        .map_err(|e| ServiceError::XaiApiError(e.to_string()))?;
+
+    Ok(chat_response)
+}

@@ -41,7 +41,8 @@ async fn main() -> std::io::Result<()> {
             .wrap(cors)
             .service(
                 web::scope("/api")
-                    .route("/chat", web::post().to(handlers::chat_handler))
+                    .route("/chat/ollama", web::post().to(handlers::ollama_chat_handler))
+                    .route("/chat/xai", web::post().to(handlers::xai_chat_handler))
                     .route("/models", web::get().to(handlers::list_models))
             )
     })
