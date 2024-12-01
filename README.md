@@ -51,7 +51,6 @@ docker run --rm -p 7000:7000 -e PORT=7000  jyasu/rs-api
 
 ## TODO
 
-- [] deploy render.com
 - [] refactor
 
 

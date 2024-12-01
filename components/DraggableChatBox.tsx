@@ -36,7 +36,7 @@ export const DraggableChatBox: React.FC = () => {
     setInputMessage('');
 
     try {
-      const response = await axios.post('https://8080-jyasuu-jyasuugithubio-i7qhgpif7nd.ws-us117.gitpod.io/api/chat/xai', { message: inputMessage });
+      const response = await axios.post('https://jyasuu-github-io-api.onrender.com/api/chat/xai', { message: inputMessage });
       
       const aiMessage: Message = {
         id: `ai-${Date.now()}`,
