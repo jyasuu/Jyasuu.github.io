@@ -1,6 +1,7 @@
 "use client";
 import { FaGithub, FaGitlab, FaLinkedin, FaCode } from 'react-icons/fa';
 import { motion } from 'framer-motion';
+import { DraggableChatBox } from '@/components/DraggableChatBox';
 
 export default function Home() {
   return (
@@ -80,6 +81,7 @@ export default function Home() {
           <span className="mt-2 text-lg">LeetCode</span>
         </a>
       </div>
+      <DraggableChatBox />
 
       <footer className="mt-16 text-gray-500 text-sm text-center">
         <p>Designed with 💙 using Next.js and Tailwind CSS</p>
