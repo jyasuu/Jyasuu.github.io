@@ -1,10 +1,5 @@
 use actix_web::{
-    web, 
-    App, 
-    HttpServer, 
-    middleware::Logger,
-    HttpResponse, 
-    Responder
+    body::MessageBody, dev::{ServiceRequest, ServiceResponse}, middleware::{from_fn, Logger, Next}, web, App, HttpResponse, HttpServer, Responder
 };
 use actix_cors::Cors;
 use env_logger::Env;
@@ -14,6 +9,25 @@ mod models;
 mod handlers;
 mod errors;
 mod services;
+
+
+async fn rate_limit(
+    req: ServiceRequest,
+    next: Next<impl MessageBody>,
+) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
+    log::info!("rate limit pre-processing...");
+    log::info!("peer_addr {:#?}",req.peer_addr());
+    log::info!("headers {:#?}",req.headers());
+    log::info!("query_string {:#?}",req.query_string());
+    log::info!("uri {:#?}",req.uri());
+    log::info!("version {:#?}",req.version());
+    // pre-processing
+    let res = next.call(req).await;
+    // post-processing
+    log::info!("rate limit post-processing...");
+    res
+}
+
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -39,6 +53,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .wrap(Logger::default())
             .wrap(cors)
+            .wrap(from_fn(rate_limit))
             .service(
                 web::scope("/api")
                     .route("/chat/ollama", web::post().to(handlers::ollama_chat_handler))
