@@ -112,10 +112,6 @@ pub mod xai
         pub cached_tokens: u32,
     }
 
-    #[derive(Debug)]
-    pub enum ServiceError {
-        XaiApiError(String),
-    }
 
 }
 

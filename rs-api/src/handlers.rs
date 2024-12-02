@@ -1,4 +1,4 @@
-use actix_web::{web, HttpResponse, Responder};
+use actix_web::{web, HttpResponse};
 use crate::models::{ChatRequest, ChatResponse};
 use crate::services::{get_ollama_models, send_chat_to_ollama, send_chat_to_xai};
 use crate::errors::ServiceError;
