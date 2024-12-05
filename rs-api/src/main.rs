@@ -3,6 +3,7 @@ use actix_web::{
 };
 use actix_cors::Cors;
 use env_logger::Env;
+use rate_limiter::RateLimiter;
 use say_hi::SayHi;
 use std::env;
 
@@ -11,6 +12,7 @@ mod handlers;
 mod errors;
 mod services;
 mod say_hi;
+mod rate_limiter;
 
 
 async fn rate_limit(
@@ -27,6 +29,7 @@ async fn rate_limit(
     let res = next.call(req).await;
     // post-processing
     log::info!("rate limit post-processing...");
+    log::info!("status {:#?}",res.as_ref().unwrap().status());
     res
 }
 
@@ -38,6 +41,7 @@ async fn main() -> std::io::Result<()> {
 
     // Load environment variables
     dotenv::dotenv().ok();
+
 
     let host = env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
     let port = env::var("PORT").unwrap_or_else(|_| "8080".to_string());
@@ -57,6 +61,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(cors)
             .wrap(from_fn(rate_limit))
             .wrap(SayHi)
+            .wrap(RateLimiter)
             .service(
                 web::scope("/api")
                     .route("/chat/ollama", web::post().to(handlers::ollama_chat_handler))
