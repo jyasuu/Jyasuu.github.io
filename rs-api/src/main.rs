@@ -3,9 +3,10 @@ use actix_web::{
 };
 use actix_cors::Cors;
 use env_logger::Env;
+use moka::sync::Cache;
 use rate_limiter::RateLimiter;
 use say_hi::SayHi;
-use std::env;
+use std::{env, sync::{Arc, Mutex}, time::Instant};
 
 mod models;
 mod handlers;
@@ -41,7 +42,8 @@ async fn main() -> std::io::Result<()> {
 
     // Load environment variables
     dotenv::dotenv().ok();
-
+    let cache : Cache<String, (u64, Instant)> = Cache::new(1000);
+    let cache = Arc::new(Mutex::new(cache));
 
     let host = env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
     let port = env::var("PORT").unwrap_or_else(|_| "8080".to_string());
@@ -49,7 +51,7 @@ async fn main() -> std::io::Result<()> {
 
     println!("🚀 Server starting on {}", server_addr);
 
-    HttpServer::new(|| {
+    HttpServer::new(move || {
         let cors = Cors::default()
             .allow_any_origin()
             .allow_any_method()
@@ -61,7 +63,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(cors)
             .wrap(from_fn(rate_limit))
             .wrap(SayHi)
-            .wrap(RateLimiter)
+            .wrap(RateLimiter{ cache: cache.clone()})
             .service(
                 web::scope("/api")
                     .route("/chat/ollama", web::post().to(handlers::ollama_chat_handler))
