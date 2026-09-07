@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>近似最近鄰索引：HNSW 與 IVFFlat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#11151b;
+    --panel:#171c24;
+    --panel-2:#1d232c;
+    --line:rgba(255,255,255,0.09);
+    --text:#e7e4dc;
+    --text-dim:#9aa3ad;
+    --hnsw:#e3a548;
+    --hnsw-dim:#5c4a2a;
+    --ivf:#4fb4ac;
+    --ivf-dim:#2a4d49;
+    --danger:#d97a6f;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
+  body{
+    font-family:'Noto Sans TC','Noto Sans',sans-serif;
+    line-height:1.75;
+    font-size:16px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:960px;margin:0 auto;padding:0 24px;}
+  .prose{max-width:660px;}
+  h1,h2,h3{
+    font-family:'Noto Serif TC','Noto Serif',serif;
+    font-weight:700;
+    line-height:1.35;
+    margin:0 0 0.5em 0;
+    color:#f4f1ea;
+  }
+  h1{font-size:2.15rem;letter-spacing:0.01em;}
+  h2{font-size:1.55rem;margin-top:0;}
+  h3{font-size:1.05rem;font-weight:600;color:var(--text);}
+  p{margin:0 0 1.1em 0;}
+  a{color:var(--hnsw);text-decoration:none;border-bottom:1px solid var(--hnsw-dim);}
+  code{font-family:'JetBrains Mono','Noto Sans TC',monospace;font-size:0.86em;background:rgba(255,255,255,0.06);padding:0.1em 0.35em;border-radius:3px;}
+
+  header.hero{padding:72px 0 40px;border-bottom:1px solid var(--line);}
+  .kicker{font-family:'JetBrains Mono',monospace;font-size:0.8rem;color:var(--text-dim);margin-bottom:14px;}
+  header.hero p.lede{font-size:1.12rem;color:#c9c5bb;max-width:620px;}
+
+  section{padding:56px 0;border-bottom:1px solid var(--line);}
+  section:last-of-type{border-bottom:none;}
+  .tag{
+    display:inline-block;font-family:'JetBrains Mono',monospace;font-size:0.75rem;
+    padding:3px 9px;border-radius:3px;margin-bottom:16px;letter-spacing:0.02em;
+  }
+  .tag.hnsw{background:rgba(227,165,72,0.14);color:var(--hnsw);border:1px solid var(--hnsw-dim);}
+  .tag.ivf{background:rgba(79,180,172,0.14);color:var(--ivf);border:1px solid var(--ivf-dim);}
+
+  .panel{
+    background:var(--panel);border:1px solid var(--line);border-radius:6px;
+    padding:20px;margin:28px 0;
+  }
+  .panel-title{font-family:'JetBrains Mono',monospace;font-size:0.82rem;color:var(--text-dim);margin-bottom:14px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;align-items:center;}
+
+  canvas{width:100%;height:auto;display:block;background:var(--panel-2);border-radius:4px;cursor:crosshair;}
+
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  button{
+    font-family:'Noto Sans TC',sans-serif;font-size:0.86rem;font-weight:500;
+    background:var(--panel-2);color:var(--text);border:1px solid var(--line);
+    padding:8px 14px;border-radius:4px;cursor:pointer;
+  }
+  button:hover{border-color:rgba(255,255,255,0.25);}
+  button.primary.hnsw{background:var(--hnsw);color:#231a09;border-color:var(--hnsw);}
+  button.primary.ivf{background:var(--ivf);color:#082521;border-color:var(--ivf);}
+  button:disabled{opacity:0.4;cursor:not-allowed;}
+
+  .slider-row{display:flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;color:var(--text-dim);}
+  input[type=range]{width:160px;}
+
+  .log{
+    font-family:'JetBrains Mono',monospace;font-size:0.8rem;color:var(--text-dim);
+    margin-top:14px;padding:12px 14px;background:var(--panel-2);border-radius:4px;
+    min-height:1.6em;max-height:150px;overflow-y:auto;
+  }
+  .log div{margin-bottom:3px;}
+  .log div.now{color:var(--text);}
+
+  .stat-row{display:flex;gap:22px;flex-wrap:wrap;margin-top:14px;}
+  .stat{font-family:'JetBrains Mono',monospace;}
+  .stat .num{font-size:1.5rem;color:#f4f1ea;display:block;}
+  .stat .label{font-size:0.76rem;color:var(--text-dim);}
+
+  pre{
+    background:var(--panel-2);border:1px solid var(--line);border-radius:6px;
+    padding:18px 20px;overflow-x:auto;font-family:'JetBrains Mono',monospace;
+    font-size:0.83rem;line-height:1.65;color:#d9d5cb;
+  }
+  pre .c{color:var(--text-dim);}
+  pre .kw{color:var(--hnsw);}
+  pre .kw2{color:var(--ivf);}
+
+  .param-list{display:grid;grid-template-columns:1fr;gap:12px;margin:20px 0;}
+  .param{padding:12px 16px;background:var(--panel);border:1px solid var(--line);border-radius:6px;}
+  .param b{font-family:'JetBrains Mono',monospace;font-weight:500;color:#f4f1ea;}
+
+  table{width:100%;border-collapse:collapse;margin:24px 0;font-size:0.92rem;}
+  th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:var(--text-dim);font-weight:500;}
+  td.k{color:var(--text-dim);white-space:nowrap;}
+
+  .legend{display:flex;gap:18px;flex-wrap:wrap;font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:var(--text-dim);margin-top:10px;}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block;}
+
+  footer{padding:40px 0 80px;}
+  footer p{color:var(--text-dim);font-size:0.9rem;}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="kicker">向量索引 · 近似最近鄰搜尋</div>
+    <h1>資料變多之後，「找最近的向量」該怎麼辦</h1>
+    <p class="lede">
+      當向量表只有幾千筆，逐一算距離、排序取前 k 個完全沒問題。可是資料量一旦到幾百萬筆，
+      這種暴力比對就會變成瓶頸。HNSW 與 IVFFlat 是兩種常見的解法，用「放棄一點精確度」
+      換回「大幅減少要比對的向量數」。下面用可互動的圖表和偽代碼拆解它們各自的直覺。
+    </p>
+  </header>
+
+  <!-- ============ HNSW ============ -->
+  <section id="hnsw">
+    <div class="tag hnsw">HNSW · Hierarchical Navigable Small World</div>
+    <div class="prose">
+      <h2>先跳遠一點，再慢慢逼近</h2>
+      <p>
+        HNSW 把所有向量放進一個多層的圖。最上層節點最少、邊最長，適合先大步跳到查詢點附近的區域；
+        越往下層節點越密、邊越短，適合做精細調整。搜尋時從最上層的固定入口點開始，
+        每層都用「貪婪搜尋」——不斷走向目前鄰居中離查詢點更近的那個，直到找不到更近的為止，
+        再把落腳點帶到下一層繼續走，一路走到最底層（第 0 層，包含全部節點）為止。
+      </p>
+      <p>
+        這個機制像機場轉機：越上層越像洲際航班的樞紐機場，先跨過大片距離；
+        越下層越像市內公車站，負責最後一段的精確定位。
+      </p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">
+        <span>互動圖：點擊任意位置設定查詢點，觀察搜尋如何逐層下降</span>
+        <span id="hnswStatus" style="color:var(--hnsw)"></span>
+      </div>
+      <canvas id="hnswCanvas" width="880" height="480"></canvas>
+      <div class="controls">
+        <button id="hnswReset">清除查詢點</button>
+        <span style="color:var(--text-dim);font-size:0.82rem;">下方色帶代表第 2／1／0 層，同一個節點在不同層會出現在對應色帶中</span>
+      </div>
+      <div class="legend">
+        <span><span class="dot" style="background:#e3a548"></span>目前所在節點</span>
+        <span><span class="dot" style="background:#d97a6f"></span>查詢點</span>
+        <span><span class="dot" style="background:#5c6270"></span>未走訪節點</span>
+      </div>
+      <div class="log" id="hnswLog"><div>點擊圖表任意處，設定一個查詢向量的位置。</div></div>
+    </div>
+
+    <h3>參數怎麼影響它</h3>
+    <div class="param-list">
+      <div class="param"><b>M</b> — 每個節點在圖中保留的鄰居數上限。M 越大，圖越密、召回率越高，但記憶體與建構時間也越高。</div>
+      <div class="param"><b>efConstruction</b> — 建圖時，每次插入節點要探索的候選集合大小。越大，圖建得越精細，插入越慢。</div>
+      <div class="param"><b>efSearch</b> — 查詢時最底層搜尋維持的候選集合大小。越大越精確、越慢；這是查詢時唯一需要即時調整的旋鈕。</div>
+    </div>
+
+    <h3>偽代碼</h3>
+    <pre><span class="c">// 插入一個新向量 q</span>
+<span class="kw">function</span> HNSW_INSERT(hnsw, q):
+    L = random_level()                  <span class="c">// 依機率分布抽出 q 最高會出現在哪一層</span>
+    ep = hnsw.entry_point
+    <span class="kw">for</span> lc = hnsw.max_level <span class="kw">downto</span> L+1:
+        ep = SEARCH_LAYER(q, ep, ef=1, lc).nearest    <span class="c">// 只需知道大概方向</span>
+    <span class="kw">for</span> lc = min(L, hnsw.max_level) <span class="kw">downto</span> 0:
+        candidates = SEARCH_LAYER(q, ep, ef=efConstruction, lc)
+        neighbors  = SELECT_NEIGHBORS(candidates, M)
+        connect q &lt;-&gt; neighbors on layer lc
+        <span class="kw">for</span> each neighbor: prune its edge list to size &lt;= Mmax
+        ep = nearest(candidates)
+    <span class="kw">if</span> L &gt; hnsw.max_level:
+        hnsw.entry_point = q
+        hnsw.max_level = L
+
+<span class="c">// 查詢最近的 k 個向量</span>
+<span class="kw">function</span> HNSW_SEARCH(hnsw, q, k, ef):
+    ep = hnsw.entry_point
+    <span class="kw">for</span> lc = hnsw.max_level <span class="kw">downto</span> 1:
+        ep = SEARCH_LAYER(q, ep, ef=1, lc).nearest    <span class="c">// 逐層貪婪下降</span>
+    candidates = SEARCH_LAYER(q, ep, ef=max(ef, k), 0) <span class="c">// 底層做較寬的搜尋</span>
+    <span class="kw">return</span> top_k(candidates, k)
+
+<span class="kw">function</span> SEARCH_LAYER(q, entry, ef, lc):
+    visited    = { entry }
+    candidates = { entry }        <span class="c">// 待探索，依距離排序的優先隊列</span>
+    result     = { entry }        <span class="c">// 目前找到的最佳集合，容量上限 ef</span>
+    <span class="kw">while</span> candidates not empty:
+        c = candidates.pop_closest_to(q)
+        <span class="kw">if</span> dist(c, q) &gt; result.farthest_dist <span class="kw">and</span> |result| &gt;= ef:
+            <span class="kw">break</span>
+        <span class="kw">for</span> neighbor <span class="kw">in</span> graph[lc].neighbors(c):
+            <span class="kw">if</span> neighbor not in visited:
+                visited.add(neighbor)
+                <span class="kw">if</span> dist(neighbor, q) &lt; result.farthest_dist <span class="kw">or</span> |result| &lt; ef:
+                    candidates.add(neighbor)
+                    result.add(neighbor)
+                    <span class="kw">if</span> |result| &gt; ef: result.remove_farthest()
+    <span class="kw">return</span> result</pre>
+  </section>
+
+  <!-- ============ IVFFlat ============ -->
+  <section id="ivf">
+    <div class="tag ivf">IVFFlat · Inverted File with Flat vectors</div>
+    <div class="prose">
+      <h2>先分區，再只搜幾個區</h2>
+      <p>
+        IVFFlat 的想法簡單很多：先用 k-means 把所有向量分成 k 群，每群有一個中心點（centroid），
+        並把每個向量登記在自己所屬的那份「倒排列表」裡。查詢時不需要比對全部資料，
+        只要先找出離查詢點最近的幾個中心點（數量由 <code>nprobe</code> 決定），
+        再只在這幾份列表裡逐一比對距離。<code>nprobe</code> 越大，涵蓋的區域越廣、越接近暴力搜尋的準確度，
+        但也要多比對更多向量。
+      </p>
+      <p>
+        這比較像用郵遞區號先篩選要跑哪幾個郵局轄區送信，而不是把全國每一戶都問一遍。
+      </p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">
+        <span>互動圖：點擊設定查詢點，拖動 nprobe 觀察搜尋範圍與命中率</span>
+        <span id="ivfStatus" style="color:var(--ivf)"></span>
+      </div>
+      <canvas id="ivfCanvas" width="880" height="440"></canvas>
+      <div class="controls">
+        <div class="slider-row">
+          <span>nprobe</span>
+          <input type="range" id="nprobeSlider" min="1" max="6" value="1" step="1">
+          <span id="nprobeVal">1</span> / 6 群
+        </div>
+        <button id="ivfReset">清除查詢點</button>
+      </div>
+      <div class="legend">
+        <span><span class="dot" style="background:#4fb4ac"></span>已探索群（未被灰化）</span>
+        <span><span class="dot" style="background:#4fb4ac;border:2px solid #eaf7f5;border-radius:2px;"></span>IVFFlat 找到的近似結果</span>
+        <span><span class="dot" style="background:transparent;border:2px solid #d97a6f;border-radius:2px;"></span>真正最近的向量（暴力搜尋）</span>
+      </div>
+      <div class="stat-row" id="ivfStats" style="display:none;">
+        <div class="stat"><span class="num" id="statProbed">–</span><span class="label">實際比對的向量數</span></div>
+        <div class="stat"><span class="num" id="statTotal">–</span><span class="label">全庫向量數（暴力搜尋需比對）</span></div>
+        <div class="stat"><span class="num" id="statHit">–</span><span class="label">是否命中真正最近的向量</span></div>
+      </div>
+      <div class="log" id="ivfLog"><div>點擊圖表任意處，設定一個查詢向量的位置。</div></div>
+    </div>
+
+    <h3>參數怎麼影響它</h3>
+    <div class="param-list">
+      <div class="param"><b>lists</b> — 分群數量 k。群越多，每群越小、搜尋越快，但需要更大的 nprobe 才能維持召回率。常見經驗值是資料量的平方根量級。</div>
+      <div class="param"><b>nprobe</b> — 查詢時要探索的群數。等於 lists 時等同暴力搜尋；等於 1 時最快但容易漏掉剛好落在邊界另一側的最近向量。</div>
+    </div>
+
+    <h3>偽代碼</h3>
+    <pre><span class="c">// 建立索引</span>
+<span class="kw2">function</span> IVFFLAT_BUILD(vectors, k, iters):
+    centroids = kmeans_init(vectors, k)         <span class="c">// 例如 k-means++ 初始化</span>
+    <span class="kw2">for</span> i <span class="kw2">in</span> 1..iters:
+        <span class="kw2">for</span> v <span class="kw2">in</span> vectors:
+            assign[v] = argmin_c dist(v, centroids[c])
+        <span class="kw2">for</span> c <span class="kw2">in</span> 1..k:
+            centroids[c] = mean({ v | assign[v] == c })
+
+    lists = k 份空的倒排列表
+    <span class="kw2">for</span> v <span class="kw2">in</span> vectors:
+        lists[assign[v]].append(v)
+    <span class="kw2">return</span> centroids, lists
+
+<span class="c">// 查詢最近的 k 個向量</span>
+<span class="kw2">function</span> IVFFLAT_SEARCH(query, centroids, lists, nprobe, k):
+    ranked = sort(centroids by dist(query, centroid))
+    probe_set = ranked[0 : nprobe]              <span class="c">// 只挑最近的 nprobe 個群</span>
+
+    candidates = []
+    <span class="kw2">for</span> c <span class="kw2">in</span> probe_set:
+        candidates.extend(lists[c])             <span class="c">// 只掃描這幾份列表，不碰其他群</span>
+
+    scored = [ (v, dist(query, v)) <span class="kw2">for</span> v <span class="kw2">in</span> candidates ]
+    <span class="kw2">return</span> top_k(scored, k)</pre>
+  </section>
+
+  <!-- ============ Comparison ============ -->
+  <section>
+    <h2>兩者怎麼選</h2>
+    <div class="prose">
+      <p>
+        兩者都是「用結構換速度」，但換的方式不同：HNSW 換的是圖遍歷的跳躍能力，
+        IVFFlat 換的是把向量空間先切好區塊。沒有哪個絕對更好，取決於資料規模、
+        更新頻率，以及你能接受多少召回率的犧牲。
+      </p>
+    </div>
+    <table>
+      <tr><th></th><th>HNSW</th><th>IVFFlat</th></tr>
+      <tr><td class="k">建構時間</td><td>較慢，需逐點插入並維護多層圖</td><td>較快，只需跑幾輪 k-means</td></tr>
+      <tr><td class="k">查詢速度</td><td>很快，層與層之間可跨越大量節點</td><td>取決於分群數與 nprobe，通常也很快</td></tr>
+      <tr><td class="k">記憶體用量</td><td>較高，每個節點要存多層鄰居列表</td><td>較低，只需存 centroid 與原始向量</td></tr>
+      <tr><td class="k">召回率調整</td><td>調整 efSearch，越大越準越慢</td><td>調整 nprobe，越大越準越慢</td></tr>
+      <tr><td class="k">動態新增資料</td><td>支援線上插入，但刪除、大量更新較麻煩</td><td>新增資料容易，但資料分布改變後 centroid 會失準，需重新訓練</td></tr>
+      <tr><td class="k">適合情境</td><td>召回率要求高、資料量大且相對穩定的線上服務</td><td>資料量極大、可接受稍低召回、偏好簡單可重建的批次流程</td></tr>
+    </table>
+    <p style="color:var(--text-dim);font-size:0.92rem;">
+      在 pgvector 裡兩者都是原生索引類型：<code>USING hnsw (m, ef_construction)</code> 建立索引後，
+      查詢時用 <code>SET hnsw.ef_search = ...</code> 調整；<code>USING ivfflat (lists)</code> 建立索引後，
+      查詢時用 <code>SET ivfflat.probes = ...</code> 調整——對應的就是上面偽代碼裡的同一組參數。
+    </p>
+  </section>
+
+  <footer>
+    <p>本頁的圖表為簡化示範，用來說明兩種索引的核心直覺，節點數與參數皆縮小以便觀察，並非正式效能測試。</p>
+  </footer>
+</div>
+
+<script>
+// ---------- shared utils ----------
+function mulberry32(seed){
+  return function(){
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function dist(a,b){ const dx=a.x-b.x, dy=a.y-b.y; return Math.sqrt(dx*dx+dy*dy); }
+
+// ============================================================
+// HNSW DEMO
+// ============================================================
+(function(){
+  const canvas = document.getElementById('hnswCanvas');
+  const ctx = canvas.getContext('2d');
+  const logEl = document.getElementById('hnswLog');
+  const statusEl = document.getElementById('hnswStatus');
+  const resetBtn = document.getElementById('hnswReset');
+
+  const W = canvas.width, H = canvas.height;
+  const bandH = H/3;
+  const rng = mulberry32(1337);
+
+  const N = 42;
+  const points = [];
+  for(let i=0;i<N;i++){
+    points.push({
+      id:i,
+      x: 40 + rng()*(W-80),
+      y: 30 + rng()*(bandH-60)
+    });
+  }
+  // hierarchy: layer1 subset = multiples of 3, layer2 subset = multiples of 9 (nested)
+  const layerNodes = [
+    points.filter(p=>p.id%9===0).map(p=>p.id),   // layer 2 (top, sparsest)
+    points.filter(p=>p.id%3===0).map(p=>p.id),   // layer 1
+    points.map(p=>p.id)                          // layer 0 (all)
+  ];
+  const entryPoint = layerNodes[0][0];
+
+  function buildGraph(nodeIds, k){
+    const graph = {};
+    nodeIds.forEach(id=>{
+      const dists = nodeIds.filter(o=>o!==id)
+        .map(o=>({o,d:dist(points[id],points[o])}))
+        .sort((a,b)=>a.d-b.d)
+        .slice(0,k)
+        .map(x=>x.o);
+      graph[id] = dists;
+    });
+    // symmetrize
+    nodeIds.forEach(id=>{
+      graph[id].forEach(nb=>{
+        if(!graph[nb].includes(id)) graph[nb].push(id);
+      });
+    });
+    return graph;
+  }
+  const graphs = [buildGraph(layerNodes[0],3), buildGraph(layerNodes[1],4), buildGraph(layerNodes[2],4)];
+
+  function greedySearch(query, entryId, graph){
+    let current = entryId;
+    const path = [current];
+    let improved = true;
+    while(improved){
+      improved = false;
+      let bestId = current, bestDist = dist(query, points[current]);
+      (graph[current]||[]).forEach(nb=>{
+        const d = dist(query, points[nb]);
+        if(d < bestDist - 0.0001){ bestDist = d; bestId = nb; }
+      });
+      if(bestId !== current){ current = bestId; path.push(current); improved = true; }
+    }
+    return {result:current, path};
+  }
+
+  let query = null;
+  let animFrame = null;
+  const layerLabels = ['第 2 層（入口層，節點最少）','第 1 層','第 0 層（全部節點，最終結果）'];
+  const layerColor = ['#e3a548','#e3a548','#e3a548'];
+
+  function bandY(layer){ return layer*bandH; }
+
+  function drawBandBackground(layer){
+    const y0 = bandY(layer);
+    ctx.fillStyle = layer%2===0 ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.0)';
+    ctx.fillRect(0,y0,W,bandH);
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.beginPath(); ctx.moveTo(0,y0); ctx.lineTo(W,y0); ctx.stroke();
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '12px "JetBrains Mono", monospace';
+    ctx.fillText(layerLabels[layer], 12, y0+18);
+  }
+
+  function drawEdges(layer, highlightPath){
+    const y0 = bandY(layer);
+    const graph = graphs[layer];
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    layerNodes[layer].forEach(id=>{
+      (graph[id]||[]).forEach(nb=>{
+        if(id<nb){
+          ctx.beginPath();
+          ctx.moveTo(points[id].x, y0+points[id].y);
+          ctx.lineTo(points[nb].x, y0+points[nb].y);
+          ctx.stroke();
+        }
+      });
+    });
+    if(highlightPath && highlightPath.length>1){
+      ctx.strokeStyle = '#e3a548';
+      ctx.lineWidth = 2.2;
+      for(let i=0;i<highlightPath.length-1;i++){
+        const a = points[highlightPath[i]], b = points[highlightPath[i+1]];
+        ctx.beginPath();
+        ctx.moveTo(a.x, y0+a.y);
+        ctx.lineTo(b.x, y0+b.y);
+        ctx.stroke();
+      }
+    }
+  }
+
+  function drawNodes(layer, currentId, visited){
+    const y0 = bandY(layer);
+    layerNodes[layer].forEach(id=>{
+      const p = points[id];
+      ctx.beginPath();
+      let r = 4.5;
+      let fill = '#5c6270';
+      if(visited && visited.has(id)) fill = 'rgba(227,165,72,0.55)';
+      if(id===currentId){ fill = '#e3a548'; r = 6.5; }
+      ctx.fillStyle = fill;
+      ctx.arc(p.x, y0+p.y, r, 0, Math.PI*2);
+      ctx.fill();
+    });
+  }
+
+  function drawQuery(){
+    if(!query) return;
+    [0,1,2].forEach(layer=>{
+      const y0 = bandY(layer);
+      ctx.beginPath();
+      ctx.strokeStyle = '#d97a6f';
+      ctx.lineWidth = 2;
+      const s = 6;
+      ctx.moveTo(query.x-s, y0+query.y-s); ctx.lineTo(query.x+s, y0+query.y+s);
+      ctx.moveTo(query.x+s, y0+query.y-s); ctx.lineTo(query.x-s, y0+query.y+s);
+      ctx.stroke();
+    });
+  }
+
+  function render(currents, visitedSets, paths){
+    ctx.clearRect(0,0,W,H);
+    for(let l=0;l<3;l++){
+      drawBandBackground(l);
+      drawEdges(l, paths ? paths[l] : null);
+      drawNodes(l, currents ? currents[l] : null, visitedSets ? visitedSets[l] : null);
+    }
+    drawQuery();
+  }
+
+  function log(msg, isNow){
+    const d = document.createElement('div');
+    if(isNow) d.className='now';
+    d.textContent = msg;
+    logEl.appendChild(d);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  function clearLog(){ logEl.innerHTML=''; }
+
+  function runSearch(){
+    if(animFrame) cancelAnimationFrame(animFrame);
+    clearLog();
+    statusEl.textContent = '搜尋中…';
+    const steps = []; // {layer, current, visited:Set, path, msg}
+    let entry = entryPoint;
+    for(let l=0;l<3;l++){
+      const visited = new Set([entry]);
+      const path = [entry];
+      let current = entry;
+      steps.push({layer:l, current, visited:new Set(visited), path:[...path],
+        msg:`第 ${2-l} 層：從入口節點 #${current} 開始貪婪搜尋`});
+      let improved = true;
+      while(improved){
+        improved = false;
+        let bestId = current, bestDist = dist(query, points[current]);
+        (graphs[l][current]||[]).forEach(nb=>{
+          visited.add(nb);
+          const d = dist(query, points[nb]);
+          if(d < bestDist - 0.0001){ bestDist = d; bestId = nb; }
+        });
+        if(bestId !== current){
+          current = bestId; path.push(current); improved = true;
+          steps.push({layer:l, current, visited:new Set(visited), path:[...path],
+            msg:`第 ${2-l} 層：發現節點 #${current} 比目前位置更靠近查詢點，移動過去`});
+        }
+      }
+      steps.push({layer:l, current, visited:new Set(visited), path:[...path],
+        msg: l<2 ? `第 ${2-l} 層：找不到更近的鄰居了，帶著節點 #${current} 進入下一層作為入口`
+                  : `第 0 層：找不到更近的鄰居了，節點 #${current} 就是這次搜尋的最終結果`});
+      entry = current;
+    }
+
+    let i = 0;
+    const currents = [null,null,null], visitedSets=[new Set(),new Set(),new Set()], paths=[[],[],[]];
+    function step(){
+      if(i>=steps.length){ statusEl.textContent = '完成'; return; }
+      const s = steps[i];
+      currents[s.layer]=s.current; visitedSets[s.layer]=s.visited; paths[s.layer]=s.path;
+      render(currents, visitedSets, paths);
+      log(s.msg, true);
+      i++;
+      animFrame = setTimeout(step, 850);
+    }
+    step();
+  }
+
+  canvas.addEventListener('click', e=>{
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width/rect.width, scaleY = canvas.height/rect.height;
+    const cx = (e.clientX-rect.left)*scaleX, cy = (e.clientY-rect.top)*scaleY;
+    const layer = Math.floor(cy/bandH);
+    query = { x: Math.max(20,Math.min(W-20,cx)), y: Math.max(20,Math.min(bandH-20, cy - layer*bandH)) };
+    runSearch();
+  });
+  resetBtn.addEventListener('click', ()=>{
+    if(animFrame) clearTimeout(animFrame);
+    query = null; statusEl.textContent='';
+    clearLog(); log('點擊圖表任意處，設定一個查詢向量的位置。');
+    render(null,null,null);
+  });
+
+  render(null,null,null);
+})();
+
+// ============================================================
+// IVFFLAT DEMO
+// ============================================================
+(function(){
+  const canvas = document.getElementById('ivfCanvas');
+  const ctx = canvas.getContext('2d');
+  const logEl = document.getElementById('ivfLog');
+  const statusEl = document.getElementById('ivfStatus');
+  const resetBtn = document.getElementById('ivfReset');
+  const slider = document.getElementById('nprobeSlider');
+  const nprobeVal = document.getElementById('nprobeVal');
+  const statsRow = document.getElementById('ivfStats');
+  const statProbed = document.getElementById('statProbed');
+  const statTotal = document.getElementById('statTotal');
+  const statHit = document.getElementById('statHit');
+
+  const W = canvas.width, H = canvas.height;
+  const K = 6;
+  const rng = mulberry32(2024);
+
+  const blobCenters = [];
+  for(let i=0;i<K;i++){
+    blobCenters.push({ x: 70+rng()*(W-140), y: 60+rng()*(H-120) });
+  }
+  const points = [];
+  let pid=0;
+  blobCenters.forEach(c=>{
+    const n = 12+Math.floor(rng()*6);
+    for(let j=0;j<n;j++){
+      const ang = rng()*Math.PI*2, r = rng()*55;
+      points.push({ id:pid++, x: c.x+Math.cos(ang)*r, y: c.y+Math.sin(ang)*r });
+    }
+  });
+  const N = points.length;
+
+  // k-means
+  let centroids = blobCenters.map(c=>({x:c.x,y:c.y}));
+  let assign = new Array(N).fill(0);
+  for(let iter=0; iter<8; iter++){
+    for(let i=0;i<N;i++){
+      let best=0, bestD=Infinity;
+      centroids.forEach((c,ci)=>{ const d=dist(points[i],c); if(d<bestD){bestD=d;best=ci;} });
+      assign[i]=best;
+    }
+    const sum = centroids.map(()=>({x:0,y:0,n:0}));
+    for(let i=0;i<N;i++){ sum[assign[i]].x+=points[i].x; sum[assign[i]].y+=points[i].y; sum[assign[i]].n++; }
+    centroids = centroids.map((c,ci)=> sum[ci].n>0 ? {x:sum[ci].x/sum[ci].n, y:sum[ci].y/sum[ci].n} : c);
+  }
+  const lists = Array.from({length:K},()=>[]);
+  for(let i=0;i<N;i++) lists[assign[i]].push(points[i].id);
+
+  const palette = ['#4fb4ac','#7fb8e8','#c98fd6','#e3a548','#8fd67f','#e88f9f'];
+
+  // precompute voronoi grid once
+  const CELL = 10;
+  const gridCols = Math.ceil(W/CELL), gridRows = Math.ceil(H/CELL);
+  const grid = new Array(gridCols*gridRows);
+  for(let gy=0; gy<gridRows; gy++){
+    for(let gx=0; gx<gridCols; gx++){
+      const p = {x:gx*CELL+CELL/2, y:gy*CELL+CELL/2};
+      let best=0, bestD=Infinity;
+      centroids.forEach((c,ci)=>{ const d=dist(p,c); if(d<bestD){bestD=d;best=ci;} });
+      grid[gy*gridCols+gx]=best;
+    }
+  }
+
+  let query = null;
+
+  function hexToRgb(hex){
+    const v = parseInt(hex.slice(1),16);
+    return [(v>>16)&255,(v>>8)&255,v&255];
+  }
+  const paletteRgb = palette.map(hexToRgb);
+
+  function render(probedSet, approxResult, exactResult){
+    ctx.clearRect(0,0,W,H);
+    // background regions
+    for(let gy=0; gy<gridRows; gy++){
+      for(let gx=0; gx<gridCols; gx++){
+        const ci = grid[gy*gridCols+gx];
+        const active = !probedSet || probedSet.has(ci);
+        const [r,g,b] = paletteRgb[ci];
+        const alpha = active ? 0.16 : 0.045;
+        ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+        ctx.fillRect(gx*CELL, gy*CELL, CELL, CELL);
+      }
+    }
+    // points
+    points.forEach(p=>{
+      const active = !probedSet || probedSet.has(assign[p.id]);
+      const [r,g,b] = paletteRgb[assign[p.id]];
+      ctx.beginPath();
+      ctx.fillStyle = active ? `rgb(${r},${g},${b})` : `rgba(${r},${g},${b},0.28)`;
+      ctx.arc(p.x,p.y,4,0,Math.PI*2);
+      ctx.fill();
+    });
+    // centroids
+    centroids.forEach((c,ci)=>{
+      const active = !probedSet || probedSet.has(ci);
+      ctx.fillStyle = active ? palette[ci] : 'rgba(255,255,255,0.25)';
+      ctx.strokeStyle = '#11151b';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      const s=7;
+      ctx.moveTo(c.x, c.y-s); ctx.lineTo(c.x+s,c.y); ctx.lineTo(c.x,c.y+s); ctx.lineTo(c.x-s,c.y);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    });
+    // query
+    if(query){
+      ctx.strokeStyle = '#d97a6f'; ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      const s=8;
+      ctx.moveTo(query.x-s, query.y-s); ctx.lineTo(query.x+s, query.y+s);
+      ctx.moveTo(query.x+s, query.y-s); ctx.lineTo(query.x-s, query.y+s);
+      ctx.stroke();
+    }
+    // results
+    if(approxResult!=null){
+      const p = points[approxResult];
+      ctx.strokeStyle = '#eaf7f5'; ctx.lineWidth=2.5;
+      ctx.beginPath(); ctx.rect(p.x-7,p.y-7,14,14); ctx.stroke();
+    }
+    if(exactResult!=null && exactResult!==approxResult){
+      const p = points[exactResult];
+      ctx.strokeStyle = '#d97a6f'; ctx.lineWidth=2.5;
+      ctx.beginPath(); ctx.rect(p.x-7,p.y-7,14,14); ctx.stroke();
+    }
+  }
+
+  function log(msg){ logEl.innerHTML=''; const d=document.createElement('div'); d.className='now'; d.textContent=msg; logEl.appendChild(d); }
+
+  function runQuery(){
+    if(!query) return;
+    const nprobe = parseInt(slider.value,10);
+    const ranked = centroids.map((c,ci)=>({ci,d:dist(query,c)})).sort((a,b)=>a.d-b.d);
+    const probeSet = new Set(ranked.slice(0,nprobe).map(x=>x.ci));
+
+    let candidateIds = [];
+    probeSet.forEach(ci=>{ candidateIds = candidateIds.concat(lists[ci]); });
+
+    let approx=null, approxD=Infinity;
+    candidateIds.forEach(id=>{ const d=dist(query,points[id]); if(d<approxD){approxD=d;approx=id;} });
+
+    let exact=null, exactD=Infinity;
+    points.forEach(p=>{ const d=dist(query,p); if(d<exactD){exactD=d;exact=p.id;} });
+
+    render(probeSet, approx, exact);
+
+    statsRow.style.display='flex';
+    statProbed.textContent = candidateIds.length;
+    statTotal.textContent = N;
+    const hit = approx===exact;
+    statHit.textContent = hit ? '是' : '否，錯過了真正最近的向量';
+    statHit.style.color = hit ? '#8fd67f' : '#d97a6f';
+
+    log(`nprobe = ${nprobe}：探索了 ${probeSet.size} / ${K} 群，實際比對 ${candidateIds.length} / ${N} 個向量` +
+        (hit ? '，找到的結果與暴力搜尋一致。' : '，結果與真正最近的向量不同——這就是近似搜尋的代價。'));
+    statusEl.textContent = hit ? '召回命中' : '召回未命中';
+    statusEl.style.color = hit ? '#8fd67f' : '#d97a6f';
+  }
+
+  canvas.addEventListener('click', e=>{
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width/rect.width, scaleY = canvas.height/rect.height;
+    query = { x:(e.clientX-rect.left)*scaleX, y:(e.clientY-rect.top)*scaleY };
+    runQuery();
+  });
+  slider.addEventListener('input', ()=>{ nprobeVal.textContent = slider.value; if(query) runQuery(); });
+  resetBtn.addEventListener('click', ()=>{
+    query=null; statsRow.style.display='none'; statusEl.textContent='';
+    logEl.innerHTML=''; log('點擊圖表任意處，設定一個查詢向量的位置。');
+    render(null,null,null);
+  });
+
+  render(null,null,null);
+})();
+</script>
+</body>
+</html>
