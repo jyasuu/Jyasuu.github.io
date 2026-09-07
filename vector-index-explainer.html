@@ -155,13 +155,27 @@
       </div>
       <canvas id="hnswCanvas" width="880" height="480"></canvas>
       <div class="controls">
+        <div class="slider-row">
+          <span>k</span>
+          <input type="range" id="kSlider" min="1" max="6" value="1" step="1">
+          <span id="kVal">1</span>
+        </div>
+        <div class="slider-row">
+          <span>efSearch（第 0 層候選集合大小）</span>
+          <input type="range" id="efSlider" min="1" max="20" value="1" step="1">
+          <span id="efVal">1</span>
+        </div>
         <button id="hnswReset">清除查詢點</button>
-        <span style="color:var(--text-dim);font-size:0.82rem;">下方色帶代表第 2／1／0 層，同一個節點在不同層會出現在對應色帶中</span>
       </div>
+      <p style="color:var(--text-dim);font-size:0.82rem;margin:10px 0 0;">
+        上面兩層一律用貪婪的單路徑跳躍（ef=1，只找方向）；只有最底層（第 0 層）用 efSearch 控制候選集合大小，
+        最後從候選集合中取最近的 k 個當作結果。若 efSearch &lt; k，會自動提高到 k。
+      </p>
       <div class="legend">
-        <span><span class="dot" style="background:#e3a548"></span>目前所在節點</span>
+        <span><span class="dot" style="background:#e3a548"></span>目前展開的節點</span>
+        <span><span class="dot" style="background:rgba(227,165,72,0.75)"></span>候選集合內的節點</span>
         <span><span class="dot" style="background:#d97a6f"></span>查詢點</span>
-        <span><span class="dot" style="background:#5c6270"></span>未走訪節點</span>
+        <span><span class="dot" style="background:transparent;border:2px solid #eaf7f5;border-radius:50%;"></span>最終 top-k 結果</span>
       </div>
       <div class="log" id="hnswLog"><div>點擊圖表任意處，設定一個查詢向量的位置。</div></div>
     </div>
@@ -241,6 +255,11 @@
       <canvas id="ivfCanvas" width="880" height="440"></canvas>
       <div class="controls">
         <div class="slider-row">
+          <span>查詢的 top-k</span>
+          <input type="range" id="ivfKSlider" min="1" max="8" value="1" step="1">
+          <span id="ivfKVal">1</span>
+        </div>
+        <div class="slider-row">
           <span>nprobe</span>
           <input type="range" id="nprobeSlider" min="1" max="6" value="1" step="1">
           <span id="nprobeVal">1</span> / 6 群
@@ -249,13 +268,13 @@
       </div>
       <div class="legend">
         <span><span class="dot" style="background:#4fb4ac"></span>已探索群（未被灰化）</span>
-        <span><span class="dot" style="background:#4fb4ac;border:2px solid #eaf7f5;border-radius:2px;"></span>IVFFlat 找到的近似結果</span>
-        <span><span class="dot" style="background:transparent;border:2px solid #d97a6f;border-radius:2px;"></span>真正最近的向量（暴力搜尋）</span>
+        <span><span class="dot" style="background:#4fb4ac;border:2px solid #eaf7f5;border-radius:2px;"></span>IVFFlat 找到的 top-k 近似結果</span>
+        <span><span class="dot" style="background:transparent;border:2px solid #d97a6f;border-radius:2px;"></span>暴力搜尋算出的真正 top-k 中，IVFFlat 漏掉的部分</span>
       </div>
       <div class="stat-row" id="ivfStats" style="display:none;">
         <div class="stat"><span class="num" id="statProbed">–</span><span class="label">實際比對的向量數</span></div>
         <div class="stat"><span class="num" id="statTotal">–</span><span class="label">全庫向量數（暴力搜尋需比對）</span></div>
-        <div class="stat"><span class="num" id="statHit">–</span><span class="label">是否命中真正最近的向量</span></div>
+        <div class="stat"><span class="num" id="statHit">–</span><span class="label">top-k 召回率</span></div>
       </div>
       <div class="log" id="ivfLog"><div>點擊圖表任意處，設定一個查詢向量的位置。</div></div>
     </div>
@@ -346,6 +365,10 @@ function dist(a,b){ const dx=a.x-b.x, dy=a.y-b.y; return Math.sqrt(dx*dx+dy*dy);
   const logEl = document.getElementById('hnswLog');
   const statusEl = document.getElementById('hnswStatus');
   const resetBtn = document.getElementById('hnswReset');
+  const kSlider = document.getElementById('kSlider');
+  const efSlider = document.getElementById('efSlider');
+  const kValEl = document.getElementById('kVal');
+  const efValEl = document.getElementById('efVal');
 
   const W = canvas.width, H = canvas.height;
   const bandH = H/3;
@@ -388,26 +411,55 @@ function dist(a,b){ const dx=a.x-b.x, dy=a.y-b.y; return Math.sqrt(dx*dx+dy*dy);
   }
   const graphs = [buildGraph(layerNodes[0],3), buildGraph(layerNodes[1],4), buildGraph(layerNodes[2],4)];
 
-  function greedySearch(query, entryId, graph){
-    let current = entryId;
-    const path = [current];
-    let improved = true;
-    while(improved){
-      improved = false;
-      let bestId = current, bestDist = dist(query, points[current]);
-      (graph[current]||[]).forEach(nb=>{
-        const d = dist(query, points[nb]);
-        if(d < bestDist - 0.0001){ bestDist = d; bestId = nb; }
+  // Full SEARCH_LAYER with a bounded candidate set of size ef (used at layer 0).
+  // Top layers still call this with ef=1, which degenerates into pure greedy hill-climbing.
+  function searchLayerBeam(query, entryId, graph, ef){
+    const visited = new Set([entryId]);
+    let candidates = [{id:entryId, d:dist(query, points[entryId])}];
+    let result = [{id:entryId, d:dist(query, points[entryId])}];
+    const steps = [];
+    const snap = ()=> result.map(r=>r.id);
+
+    steps.push({expanding:null, visited:new Set(visited), result:snap(),
+      msg:`第 0 層：以節點 #${entryId} 為入口，維護大小 ${ef} 的候選集合`});
+
+    while(candidates.length>0){
+      candidates.sort((a,b)=>a.d-b.d);
+      const c = candidates.shift();
+      const worst = result.length ? Math.max(...result.map(r=>r.d)) : Infinity;
+      if(c.d > worst && result.length >= ef){
+        steps.push({expanding:c.id, visited:new Set(visited), result:snap(),
+          msg:`第 0 層：節點 #${c.id} 已經比候選集合中最差的更遠，且集合已滿，停止搜尋`});
+        break;
+      }
+      const before = snap();
+      (graph[c.id]||[]).forEach(nb=>{
+        if(!visited.has(nb)){
+          visited.add(nb);
+          const d = dist(query, points[nb]);
+          const w = result.length ? Math.max(...result.map(r=>r.d)) : Infinity;
+          if(d < w || result.length < ef){
+            candidates.push({id:nb, d});
+            result.push({id:nb, d});
+            result.sort((a,b)=>a.d-b.d);
+            if(result.length > ef) result.pop();
+          }
+        }
       });
-      if(bestId !== current){ current = bestId; path.push(current); improved = true; }
+      const after = snap();
+      const changed = after.length!==before.length || after.some((id,i)=>id!==before[i]);
+      steps.push({expanding:c.id, visited:new Set(visited), result:after,
+        msg: changed
+          ? `第 0 層：展開節點 #${c.id}，候選集合更新為 {${after.map(x=>'#'+x).join(', ')}}`
+          : `第 0 層：展開節點 #${c.id}，鄰居都不夠好，候選集合不變`});
     }
-    return {result:current, path};
+    result.sort((a,b)=>a.d-b.d);
+    return {steps, result};
   }
 
   let query = null;
   let animFrame = null;
-  const layerLabels = ['第 2 層（入口層，節點最少）','第 1 層','第 0 層（全部節點，最終結果）'];
-  const layerColor = ['#e3a548','#e3a548','#e3a548'];
+  const layerLabels = ['第 2 層（入口層，節點最少，ef=1）','第 1 層（ef=1）','第 0 層（全部節點，efSearch 可調）'];
 
   function bandY(layer){ return layer*bandH; }
 
@@ -450,18 +502,29 @@ function dist(a,b){ const dx=a.x-b.x, dy=a.y-b.y; return Math.sqrt(dx*dx+dy*dy);
     }
   }
 
-  function drawNodes(layer, currentId, visited){
+  // state = {current, visited:Set, resultSet:[ids], topK:[ids]}
+  function drawNodes(layer, state){
     const y0 = bandY(layer);
     layerNodes[layer].forEach(id=>{
       const p = points[id];
-      ctx.beginPath();
       let r = 4.5;
       let fill = '#5c6270';
-      if(visited && visited.has(id)) fill = 'rgba(227,165,72,0.55)';
-      if(id===currentId){ fill = '#e3a548'; r = 6.5; }
+      if(state){
+        if(state.visited && state.visited.has(id)) fill = 'rgba(227,165,72,0.32)';
+        if(state.resultSet && state.resultSet.includes(id)) fill = 'rgba(227,165,72,0.8)';
+        if(id === state.current){ fill = '#e3a548'; r = 6.5; }
+      }
+      ctx.beginPath();
       ctx.fillStyle = fill;
       ctx.arc(p.x, y0+p.y, r, 0, Math.PI*2);
       ctx.fill();
+      if(state && state.topK && state.topK.includes(id)){
+        ctx.beginPath();
+        ctx.strokeStyle = '#eaf7f5';
+        ctx.lineWidth = 2;
+        ctx.arc(p.x, y0+p.y, r+3.5, 0, Math.PI*2);
+        ctx.stroke();
+      }
     });
   }
 
@@ -479,12 +542,12 @@ function dist(a,b){ const dx=a.x-b.x, dy=a.y-b.y; return Math.sqrt(dx*dx+dy*dy);
     });
   }
 
-  function render(currents, visitedSets, paths){
+  function render(states, paths){
     ctx.clearRect(0,0,W,H);
     for(let l=0;l<3;l++){
       drawBandBackground(l);
       drawEdges(l, paths ? paths[l] : null);
-      drawNodes(l, currents ? currents[l] : null, visitedSets ? visitedSets[l] : null);
+      drawNodes(l, states ? states[l] : null);
     }
     drawQuery();
   }
@@ -499,17 +562,23 @@ function dist(a,b){ const dx=a.x-b.x, dy=a.y-b.y; return Math.sqrt(dx*dx+dy*dy);
   function clearLog(){ logEl.innerHTML=''; }
 
   function runSearch(){
-    if(animFrame) cancelAnimationFrame(animFrame);
+    if(animFrame) clearTimeout(animFrame);
     clearLog();
     statusEl.textContent = '搜尋中…';
-    const steps = []; // {layer, current, visited:Set, path, msg}
+
+    const kVal = parseInt(kSlider.value,10);
+    const efVal = Math.max(kVal, parseInt(efSlider.value,10));
+
+    const steps = []; // {layer, current, visited, resultSet, topK, path, msg}
     let entry = entryPoint;
-    for(let l=0;l<3;l++){
+
+    // Layers 2 -> 1 (top two bands): pure greedy, ef=1, single path.
+    for(let l=0;l<2;l++){
       const visited = new Set([entry]);
       const path = [entry];
       let current = entry;
-      steps.push({layer:l, current, visited:new Set(visited), path:[...path],
-        msg:`第 ${2-l} 層：從入口節點 #${current} 開始貪婪搜尋`});
+      steps.push({layer:l, current, visited:new Set(visited), resultSet:null, topK:null, path:[...path],
+        msg:`第 ${2-l} 層：從入口節點 #${current} 開始貪婪搜尋（ef=1，只找一個方向）`});
       let improved = true;
       while(improved){
         improved = false;
@@ -521,26 +590,36 @@ function dist(a,b){ const dx=a.x-b.x, dy=a.y-b.y; return Math.sqrt(dx*dx+dy*dy);
         });
         if(bestId !== current){
           current = bestId; path.push(current); improved = true;
-          steps.push({layer:l, current, visited:new Set(visited), path:[...path],
-            msg:`第 ${2-l} 層：發現節點 #${current} 比目前位置更靠近查詢點，移動過去`});
+          steps.push({layer:l, current, visited:new Set(visited), resultSet:null, topK:null, path:[...path],
+            msg:`第 ${2-l} 層：發現節點 #${current} 更靠近查詢點，移動過去`});
         }
       }
-      steps.push({layer:l, current, visited:new Set(visited), path:[...path],
-        msg: l<2 ? `第 ${2-l} 層：找不到更近的鄰居了，帶著節點 #${current} 進入下一層作為入口`
-                  : `第 0 層：找不到更近的鄰居了，節點 #${current} 就是這次搜尋的最終結果`});
+      steps.push({layer:l, current, visited:new Set(visited), resultSet:null, topK:null, path:[...path],
+        msg:`第 ${2-l} 層：找不到更近的鄰居了，帶著節點 #${current} 進入下一層作為入口`});
       entry = current;
     }
 
+    // Layer 0 (bottom band): bounded beam search of size efVal.
+    const {steps: beamSteps, result} = searchLayerBeam(query, entry, graphs[2], efVal);
+    beamSteps.forEach(s=>{
+      steps.push({layer:2, current:s.expanding, visited:s.visited, resultSet:s.result, topK:null, path:null, msg:s.msg});
+    });
+    const topK = result.slice(0, kVal).map(r=>r.id);
+    const detail = result.slice(0,kVal).map(r=>`#${r.id}(d=${r.d.toFixed(1)})`).join('、');
+    steps.push({layer:2, current:null, visited:beamSteps[beamSteps.length-1].visited, resultSet: result.map(r=>r.id), topK, path:null,
+      msg:`第 0 層搜尋結束，候選集合中最近的 ${kVal} 個作為最終結果：${detail}`});
+
     let i = 0;
-    const currents = [null,null,null], visitedSets=[new Set(),new Set(),new Set()], paths=[[],[],[]];
+    const states = [null,null,null], paths=[null,null,null];
     function step(){
       if(i>=steps.length){ statusEl.textContent = '完成'; return; }
       const s = steps[i];
-      currents[s.layer]=s.current; visitedSets[s.layer]=s.visited; paths[s.layer]=s.path;
-      render(currents, visitedSets, paths);
+      states[s.layer] = {current:s.current, visited:s.visited, resultSet:s.resultSet, topK:s.topK};
+      if(s.path) paths[s.layer] = s.path;
+      render(states, paths);
       log(s.msg, true);
       i++;
-      animFrame = setTimeout(step, 850);
+      animFrame = setTimeout(step, i<=steps.length-beamSteps.length ? 800 : 480);
     }
     step();
   }
@@ -557,10 +636,23 @@ function dist(a,b){ const dx=a.x-b.x, dy=a.y-b.y; return Math.sqrt(dx*dx+dy*dy);
     if(animFrame) clearTimeout(animFrame);
     query = null; statusEl.textContent='';
     clearLog(); log('點擊圖表任意處，設定一個查詢向量的位置。');
-    render(null,null,null);
+    render(null,null);
   });
+  kSlider.addEventListener('input', ()=>{
+    kVal_display();
+    if(parseInt(efSlider.value,10) < parseInt(kSlider.value,10)) efSlider.value = kSlider.value;
+    efVal_display();
+    if(query) runSearch();
+  });
+  efSlider.addEventListener('input', ()=>{
+    if(parseInt(efSlider.value,10) < parseInt(kSlider.value,10)) efSlider.value = kSlider.value;
+    efVal_display();
+    if(query) runSearch();
+  });
+  function kVal_display(){ kValEl.textContent = kSlider.value; }
+  function efVal_display(){ efValEl.textContent = efSlider.value; }
 
-  render(null,null,null);
+  render(null,null);
 })();
 
 // ============================================================
@@ -574,6 +666,8 @@ function dist(a,b){ const dx=a.x-b.x, dy=a.y-b.y; return Math.sqrt(dx*dx+dy*dy);
   const resetBtn = document.getElementById('ivfReset');
   const slider = document.getElementById('nprobeSlider');
   const nprobeVal = document.getElementById('nprobeVal');
+  const kSlider = document.getElementById('ivfKSlider');
+  const kValEl = document.getElementById('ivfKVal');
   const statsRow = document.getElementById('ivfStats');
   const statProbed = document.getElementById('statProbed');
   const statTotal = document.getElementById('statTotal');
@@ -637,7 +731,7 @@ function dist(a,b){ const dx=a.x-b.x, dy=a.y-b.y; return Math.sqrt(dx*dx+dy*dy);
   }
   const paletteRgb = palette.map(hexToRgb);
 
-  function render(probedSet, approxResult, exactResult){
+  function render(probedSet, approxTopK, missedIds){
     ctx.clearRect(0,0,W,H);
     // background regions
     for(let gy=0; gy<gridRows; gy++){
@@ -679,16 +773,21 @@ function dist(a,b){ const dx=a.x-b.x, dy=a.y-b.y; return Math.sqrt(dx*dx+dy*dy);
       ctx.moveTo(query.x+s, query.y-s); ctx.lineTo(query.x-s, query.y+s);
       ctx.stroke();
     }
-    // results
-    if(approxResult!=null){
-      const p = points[approxResult];
-      ctx.strokeStyle = '#eaf7f5'; ctx.lineWidth=2.5;
-      ctx.beginPath(); ctx.rect(p.x-7,p.y-7,14,14); ctx.stroke();
+    // IVFFlat's top-k picks
+    if(approxTopK){
+      approxTopK.forEach(id=>{
+        const p = points[id];
+        ctx.strokeStyle = '#eaf7f5'; ctx.lineWidth=2.5;
+        ctx.beginPath(); ctx.rect(p.x-7,p.y-7,14,14); ctx.stroke();
+      });
     }
-    if(exactResult!=null && exactResult!==approxResult){
-      const p = points[exactResult];
-      ctx.strokeStyle = '#d97a6f'; ctx.lineWidth=2.5;
-      ctx.beginPath(); ctx.rect(p.x-7,p.y-7,14,14); ctx.stroke();
+    // true top-k members that IVFFlat missed
+    if(missedIds){
+      missedIds.forEach(id=>{
+        const p = points[id];
+        ctx.strokeStyle = '#d97a6f'; ctx.lineWidth=2.5;
+        ctx.beginPath(); ctx.rect(p.x-7,p.y-7,14,14); ctx.stroke();
+      });
     }
   }
 
@@ -697,31 +796,42 @@ function dist(a,b){ const dx=a.x-b.x, dy=a.y-b.y; return Math.sqrt(dx*dx+dy*dy);
   function runQuery(){
     if(!query) return;
     const nprobe = parseInt(slider.value,10);
+    const kVal = parseInt(kSlider.value,10);
     const ranked = centroids.map((c,ci)=>({ci,d:dist(query,c)})).sort((a,b)=>a.d-b.d);
     const probeSet = new Set(ranked.slice(0,nprobe).map(x=>x.ci));
 
     let candidateIds = [];
     probeSet.forEach(ci=>{ candidateIds = candidateIds.concat(lists[ci]); });
 
-    let approx=null, approxD=Infinity;
-    candidateIds.forEach(id=>{ const d=dist(query,points[id]); if(d<approxD){approxD=d;approx=id;} });
+    const approxTopK = candidateIds
+      .map(id=>({id, d:dist(query,points[id])}))
+      .sort((a,b)=>a.d-b.d)
+      .slice(0,kVal)
+      .map(x=>x.id);
 
-    let exact=null, exactD=Infinity;
-    points.forEach(p=>{ const d=dist(query,p); if(d<exactD){exactD=d;exact=p.id;} });
+    const exactTopK = points
+      .map(p=>({id:p.id, d:dist(query,p)}))
+      .sort((a,b)=>a.d-b.d)
+      .slice(0,kVal)
+      .map(x=>x.id);
 
-    render(probeSet, approx, exact);
+    const approxSet = new Set(approxTopK);
+    const missedIds = exactTopK.filter(id=>!approxSet.has(id));
+    const hitCount = kVal - missedIds.length;
+
+    render(probeSet, approxTopK, missedIds);
 
     statsRow.style.display='flex';
     statProbed.textContent = candidateIds.length;
     statTotal.textContent = N;
-    const hit = approx===exact;
-    statHit.textContent = hit ? '是' : '否，錯過了真正最近的向量';
-    statHit.style.color = hit ? '#8fd67f' : '#d97a6f';
+    const fullRecall = missedIds.length===0;
+    statHit.textContent = `${hitCount} / ${kVal}`;
+    statHit.style.color = fullRecall ? '#8fd67f' : '#d97a6f';
 
-    log(`nprobe = ${nprobe}：探索了 ${probeSet.size} / ${K} 群，實際比對 ${candidateIds.length} / ${N} 個向量` +
-        (hit ? '，找到的結果與暴力搜尋一致。' : '，結果與真正最近的向量不同——這就是近似搜尋的代價。'));
-    statusEl.textContent = hit ? '召回命中' : '召回未命中';
-    statusEl.style.color = hit ? '#8fd67f' : '#d97a6f';
+    log(`nprobe = ${nprobe}，k = ${kVal}：探索了 ${probeSet.size} / ${K} 群，實際比對 ${candidateIds.length} / ${N} 個向量，` +
+        (fullRecall ? '找到的 top-k 與暴力搜尋完全一致。' : `漏掉了 ${missedIds.length} 個真正該進榜的向量——這就是近似搜尋的代價。`));
+    statusEl.textContent = fullRecall ? '召回率 100%' : '召回率不足';
+    statusEl.style.color = fullRecall ? '#8fd67f' : '#d97a6f';
   }
 
   canvas.addEventListener('click', e=>{
@@ -731,6 +841,7 @@ function dist(a,b){ const dx=a.x-b.x, dy=a.y-b.y; return Math.sqrt(dx*dx+dy*dy);
     runQuery();
   });
   slider.addEventListener('input', ()=>{ nprobeVal.textContent = slider.value; if(query) runQuery(); });
+  kSlider.addEventListener('input', ()=>{ kValEl.textContent = kSlider.value; if(query) runQuery(); });
   resetBtn.addEventListener('click', ()=>{
     query=null; statsRow.style.display='none'; statusEl.textContent='';
     logEl.innerHTML=''; log('點擊圖表任意處，設定一個查詢向量的位置。');
