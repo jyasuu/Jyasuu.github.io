@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WebMCP Playground</title>
+<style>
+:root{--bg:#eef1f5;--card:#fff;--ink:#1d2433;--mute:#5b6577;--line:#d5dbe5;--acc:#2457c5;--ok:#1f8a5b;--warn:#a96a0f;--err:#b3261e;--code:#f4f6fa;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141a26;--card:#1c2433;--ink:#e6eaf2;--mute:#9aa5b8;--line:#2c3649;--acc:#7aa2ff;--ok:#4cc38a;--warn:#e0a24a;--err:#ff8a80;--code:#141a26}}
+:root[data-theme="dark"]{--bg:#141a26;--card:#1c2433;--ink:#e6eaf2;--mute:#9aa5b8;--line:#2c3649;--acc:#7aa2ff;--ok:#4cc38a;--warn:#e0a24a;--err:#ff8a80;--code:#141a26}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1080px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:1.6rem;margin:0 0 4px;letter-spacing:-.01em}
+h2{font-size:1.05rem;margin:0 0 10px}
+p{margin:0 0 10px}.mute{color:var(--mute);font-size:.92rem}
+.status{display:inline-block;margin:10px 0 18px;padding:6px 12px;border:1px solid var(--line);border-left:4px solid var(--warn);background:var(--card);border-radius:6px;font-size:.9rem}
+.status.native{border-left-color:var(--ok)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.grid{grid-template-columns:1fr}}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+input,select,textarea,button{font:inherit;color:inherit}
+input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card)}
+textarea{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.88rem;min-height:84px}
+button{padding:7px 13px;border:1px solid var(--acc);background:var(--acc);color:#fff;border-radius:6px;cursor:pointer}
+:root[data-theme="dark"] button,:root:not([data-theme="light"]) button{color:#0e1420}
+button.ghost{background:transparent;color:var(--acc);border-color:var(--line)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row>input{flex:1;min-width:120px}
+ul{list-style:none;margin:10px 0 0;padding:0}
+li.todo{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--line)}
+li.todo button{padding:2px 8px}
+.tool{padding:8px 0;border-top:1px solid var(--line)}
+.tool b{font-family:ui-monospace,Menlo,Consolas,monospace}
+pre{margin:6px 0 0;padding:8px 10px;background:var(--code);border-radius:6px;overflow-x:auto;font-size:.82rem}
+.log{max-height:260px;overflow:auto;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8rem}
+.log div{padding:3px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}
+.k-ok{color:var(--ok)}.k-err{color:var(--err)}.k-warn{color:var(--warn)}.k-call{color:var(--acc)}
+.lab{display:grid;gap:8px}.lab button{text-align:left}
+ol{margin:0;padding-left:20px}ol li{margin-bottom:6px}
+</style>
+</head>
+<body>
+<main>
+  <h1>WebMCP Playground</h1>
+  <p class="mute">Register tools on this page, inspect them, call them, and watch the log. Work through the exercises at the bottom.</p>
+  <div id="status" class="status"></div>
+
+  <div class="grid">
+    <div class="col">
+      <section>
+        <h2>Todo app (the page's own UI)</h2>
+        <div class="row">
+          <input id="newTodo" placeholder="Buy milk" aria-label="New todo">
+          <button id="addBtn">Add item</button>
+        </div>
+        <ul id="todos"></ul>
+        <p id="empty" class="mute" style="margin-top:10px">Nothing yet. Add an item here, or call <code>add_todo</code> from the console.</p>
+      </section>
+
+      <section>
+        <h2>Lab</h2>
+        <div class="lab">
+          <button class="ghost" id="labDup">Register add_todo again (duplicate name)</button>
+          <button class="ghost" id="labAbort">Toggle add_todo (abort signal)</button>
+          <button class="ghost" id="labExpose">Register whoami with exposedTo</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Exercises</h2>
+        <ol class="mute">
+          <li>Run <code>add_todo</code> from the console, then confirm the list above updated.</li>
+          <li>Add a todo and watch <code>clear_todos</code> appear in the inspector. Clear the list and watch it disappear.</li>
+          <li>Use the lab to trigger a duplicate-name error and read the message.</li>
+          <li>Toggle <code>add_todo</code> off and on. Try calling it while it's gone.</li>
+          <li>Register <code>whoami</code> with <code>exposedTo</code>, then inspect what the descriptor carries.</li>
+          <li>In DevTools, try <code>navigator.modelContextTesting.listTools()</code> (native Chromium only).</li>
+        </ol>
+      </section>
+    </div>
+
+    <div class="col">
+      <section>
+        <h2>Tool inspector <span id="count" class="mute"></span></h2>
+        <div id="tools"></div>
+      </section>
+
+      <section>
+        <h2>Call console</h2>
+        <select id="pick" aria-label="Tool"></select>
+        <textarea id="args" aria-label="Arguments as JSON" style="margin:8px 0">{}</textarea>
+        <div class="row"><button id="runBtn">Run tool</button><span class="mute">Arguments are sent as a JSON string.</span></div>
+      </section>
+
+      <section>
+        <h2>Log</h2>
+        <div id="log" class="log"></div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const native = document.modelContext || navigator.modelContext;
+let mc = native;
+
+// Minimal stand-in so the exercises work in any browser.
+if (!mc) {
+  const tools = new Map(), et = new EventTarget();
+  const fire = () => et.dispatchEvent(new Event('toolchange'));
+  mc = Object.assign(et, {
+    registerTool(t, o) {
+      if (tools.has(t.name)) throw new Error('Duplicate tool name: ' + t.name);
+      tools.set(t.name, t);
+      o?.signal?.addEventListener('abort', () => { if (tools.get(t.name) === t) { tools.delete(t.name); fire(); } });
+      fire();
+    },
+    async getTools() { return [...tools.values()].map(({ execute, ...d }) => d); },
+    async executeTool(tool, json) {
+      const t = tools.get(tool.name || tool);
+      if (!t) throw new Error('No such tool: ' + (tool.name || tool));
+      return t.execute(JSON.parse(json || '{}'), {});
+    }
+  });
+}
+$('#status').className = 'status' + (native ? ' native' : '');
+$('#status').textContent = native
+  ? 'Native WebMCP detected in this browser.'
+  : 'Native WebMCP not found, so a small built-in stand-in is active. In Chromium, enable chrome://flags/#enable-webmcp-testing and reload to try the real API.';
+
+// ---- log
+const logEl = $('#log');
+function addLog(kind, msg) {
+  const d = document.createElement('div');
+  d.className = 'k-' + kind;
+  d.textContent = new Date().toLocaleTimeString() + '  ' + msg;
+  logEl.prepend(d);
+}
+
+// ---- registration helpers (each tool gets an AbortController)
+const ctl = {};
+function reg(tool) {
+  if (ctl[tool.name]) return addLog('warn', 'already registered: ' + tool.name);
+  const c = new AbortController();
+  ctl[tool.name] = c;
+  c.signal.addEventListener('abort', () => { delete ctl[tool.name]; });
+  const run = tool.execute;
+  try {
+    mc.registerTool({ ...tool, execute: async (input) => {
+      addLog('call', tool.name + ' ' + JSON.stringify(input || {}));
+      return run(input || {});
+    } }, { signal: c.signal });
+    addLog('ok', 'registered ' + tool.name);
+  } catch (e) { delete ctl[tool.name]; addLog('err', e.message); }
+}
+function unreg(name) { if (ctl[name]) { ctl[name].abort(); addLog('ok', 'removed ' + name); } }
+const text = t => ({ content: [{ type: 'text', text: t }] });
+
+// ---- todo state
+const todos = [];
+function renderTodos() {
+  const ul = $('#todos'); ul.textContent = '';
+  todos.forEach((t, i) => {
+    const li = document.createElement('li'); li.className = 'todo';
+    const s = document.createElement('span'); s.textContent = t;
+    const b = document.createElement('button'); b.className = 'ghost'; b.textContent = 'Remove';
+    b.onclick = () => { todos.splice(i, 1); changed(); };
+    li.append(s, b); ul.append(li);
+  });
+  $('#empty').style.display = todos.length ? 'none' : 'block';
+}
+function changed() {
+  renderTodos();
+  if (todos.length && !ctl.clear_todos) reg(clearTool);
+  if (!todos.length) unreg('clear_todos');
+}
+
+const clearTool = {
+  name: 'clear_todos',
+  description: 'Remove every item from the todo list',
+  inputSchema: { type: 'object', properties: {} },
+  async execute() { const n = todos.length; todos.length = 0; changed(); return text('Cleared ' + n + ' item(s).'); }
+};
+
+reg({
+  name: 'add_todo',
+  description: 'Add an item to the todo list',
+  inputSchema: { type: 'object', properties: { text: { type: 'string', description: 'The item to add' } }, required: ['text'] },
+  async execute({ text: t }) {
+    if (!t) return text('Missing "text".');
+    todos.push(t); changed(); return text('Added. Total: ' + todos.length);
+  }
+});
+reg({
+  name: 'list_todos',
+  description: 'Return all todo items',
+  inputSchema: { type: 'object', properties: {} },
+  async execute() { return text(todos.length ? todos.map((t, i) => (i + 1) + '. ' + t).join('\n') : 'The list is empty.'); }
+});
+
+// ---- inspector
+let current = [];
+async function renderTools() {
+  current = await mc.getTools();
+  $('#count').textContent = '(' + current.length + ')';
+  const box = $('#tools'); box.textContent = '';
+  const sel = $('#pick'), prev = sel.value; sel.textContent = '';
+  if (!current.length) { box.textContent = 'No tools registered.'; box.className = 'mute'; }
+  else box.className = '';
+  current.forEach(t => {
+    const d = document.createElement('div'); d.className = 'tool';
+    const b = document.createElement('b'); b.textContent = t.name;
+    const p = document.createElement('div'); p.className = 'mute'; p.textContent = t.description || '';
+    const pre = document.createElement('pre');
+    pre.textContent = JSON.stringify(t.inputSchema ?? {}, null, 2) + (t.exposedTo ? '\nexposedTo: ' + JSON.stringify(t.exposedTo) : '');
+    d.append(b, p, pre); box.append(d);
+    const o = document.createElement('option'); o.value = t.name; o.textContent = t.name; sel.append(o);
+  });
+  if (current.some(t => t.name === prev)) sel.value = prev;
+  fillArgs();
+}
+function fillArgs() {
+  const t = current.find(x => x.name === $('#pick').value);
+  const props = t?.inputSchema?.properties || {};
+  const o = {}; for (const k in props) o[k] = props[k].type === 'string' ? '' : null;
+  $('#args').value = JSON.stringify(o, null, 2);
+}
+mc.addEventListener('toolchange', () => { addLog('ok', 'toolchange event'); renderTools(); });
+$('#pick').onchange = fillArgs;
+
+$('#runBtn').onclick = async () => {
+  const t = current.find(x => x.name === $('#pick').value);
+  if (!t) return addLog('err', 'No tool selected');
+  try {
+    const r = await mc.executeTool(t, $('#args').value);
+    addLog('ok', 'result: ' + JSON.stringify(r));
+  } catch (e) { addLog('err', e.message); }
+};
+
+$('#addBtn').onclick = () => {
+  const v = $('#newTodo').value.trim(); if (!v) return;
+  todos.push(v); $('#newTodo').value = ''; changed();
+};
+$('#newTodo').addEventListener('keydown', e => { if (e.key === 'Enter') $('#addBtn').click(); });
+
+// ---- lab
+$('#labDup').onclick = () => {
+  try { mc.registerTool({ name: 'add_todo', description: 'duplicate', inputSchema: { type: 'object', properties: {} }, async execute() { return text('x'); } }); addLog('warn', 'duplicate was accepted by this implementation'); }
+  catch (e) { addLog('err', e.message); }
+};
+$('#labAbort').onclick = () => {
+  if (ctl.add_todo) unreg('add_todo');
+  else reg({
+    name: 'add_todo', description: 'Add an item to the todo list',
+    inputSchema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] },
+    async execute({ text: t }) { todos.push(t); changed(); return text('Added. Total: ' + todos.length); }
+  });
+};
+$('#labExpose').onclick = () => reg({
+  name: 'whoami', description: 'Visible only to the listed HTTPS origins',
+  inputSchema: { type: 'object', properties: {} },
+  exposedTo: ['https://example.com'],
+  async execute() { return text('origin: ' + location.origin); }
+});
+
+renderTodos();
+renderTools();
+</script>
+</body>
+</html>
