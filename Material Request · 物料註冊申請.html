@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Material Request · 物料註冊申請</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f6f8;--surf:#fff;--ink:#16202b;--mute:#5d6b79;--line:#d9dfe5;--acc:#0b6e6e;--acc-t:#e1f1f0;--warn:#a85a07;--warn-t:#fbefdc;--ok:#2b7a4b;--ok-t:#e0f2e7;--err:#b3261e;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10161d;--surf:#18212b;--ink:#e6ebf0;--mute:#92a1af;--line:#2b3846;--acc:#4cc0bb;--acc-t:#16363a;--warn:#e6a257;--warn-t:#3a2a12;--ok:#6ccb91;--ok-t:#163223;--err:#ff8a80;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#10161d;--surf:#18212b;--ink:#e6ebf0;--mute:#92a1af;--line:#2b3846;--acc:#4cc0bb;--acc-t:#16363a;--warn:#e6a257;--warn-t:#3a2a12;--ok:#6ccb91;--ok-t:#163223;--err:#ff8a80;color-scheme:dark}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 "IBM Plex Sans","Noto Sans TC",system-ui,sans-serif}
+header{background:var(--surf);border-bottom:1px solid var(--line);padding:14px 24px;display:flex;gap:16px;align-items:baseline;flex-wrap:wrap}
+header h1{font-size:18px;margin:0;font-weight:600}header span{color:var(--mute);font-size:13px}
+.tabs{margin-left:auto;display:flex;gap:4px}
+.tabs button{background:none;border:1px solid var(--line);color:var(--ink);padding:6px 12px;border-radius:6px;font:inherit;font-size:13px;cursor:pointer}
+.tabs button[aria-pressed=true]{background:var(--acc);border-color:var(--acc);color:#fff}
+main{max-width:1120px;margin:0 auto;padding:20px 16px;display:grid;grid-template-columns:200px minmax(0,1fr) 280px;gap:20px}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+nav.steps{display:flex;flex-direction:column;gap:2px}
+@media(max-width:900px){nav.steps{flex-direction:row;overflow-x:auto}}
+nav.steps button{text-align:left;background:none;border:0;border-left:3px solid var(--line);padding:8px 12px;font:inherit;font-size:14px;color:var(--mute);cursor:pointer;white-space:nowrap}
+nav.steps button.on{border-color:var(--acc);color:var(--ink);font-weight:600}
+nav.steps button.done{border-color:var(--ok);color:var(--ink)}
+nav.steps small{display:block;font-weight:400;color:var(--mute);font-size:12px}
+section.card{background:var(--surf);border:1px solid var(--line);border-radius:8px;padding:20px}
+h2{font-size:17px;margin:0 0 4px}p.lead{margin:0 0 16px;color:var(--mute);font-size:13px}
+h3{font-size:14px;margin:20px 0 8px;padding-top:14px;border-top:1px solid var(--line)}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}@media(max-width:600px){.grid{grid-template-columns:1fr}}
+label{display:block;font-size:13px;font-weight:500;margin-bottom:4px}label i{color:var(--err);font-style:normal}
+input[type=text],input[type=number],select,textarea{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.bad{border-color:var(--err)!important}.msg{color:var(--err);font-size:12px;min-height:16px;margin-top:2px}.hint{color:var(--mute);font-size:12px;margin-top:2px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:flex;gap:8px;align-items:center;border:1px solid var(--line);border-radius:6px;padding:8px 12px;cursor:pointer;font-size:14px;margin:0;font-weight:400}
+.chip:has(input:checked){border-color:var(--acc);background:var(--acc-t)}
+.chip small{color:var(--mute)}
+.bar{display:flex;justify-content:space-between;margin-top:20px;gap:8px}
+.btn{font:inherit;padding:9px 18px;border-radius:6px;border:1px solid var(--line);background:var(--surf);color:var(--ink);cursor:pointer}
+.btn.p{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:500}
+aside .card{padding:14px;margin-bottom:14px;font-size:13px}aside h4{margin:0 0 8px;font-size:13px}
+.dup{border-left:3px solid var(--warn);background:var(--warn-t);padding:8px 10px;border-radius:4px;margin-bottom:6px}
+.okbox{border-left:3px solid var(--ok);background:var(--ok-t);padding:8px 10px;border-radius:4px}
+.dup b{display:block}.dup button{font:inherit;font-size:12px;margin-top:4px;background:none;border:1px solid var(--warn);color:var(--warn);border-radius:4px;cursor:pointer;padding:2px 8px}
+dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:4px 10px}dt{color:var(--mute)}dd{margin:0;word-break:break-word}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line)}th{color:var(--mute);font-weight:500}
+.wrap{overflow-x:auto}
+.pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:12px;background:var(--acc-t);color:var(--acc)}.pill.w{background:var(--warn-t);color:var(--warn)}.pill.o{background:var(--ok-t);color:var(--ok)}
+ol.tl{list-style:none;margin:0;padding:0}
+ol.tl li{display:grid;grid-template-columns:22px 1fr;gap:12px;padding-bottom:18px;position:relative}
+ol.tl li::before{content:"";position:absolute;left:10px;top:22px;bottom:0;width:2px;background:var(--line)}ol.tl li:last-child::before{display:none}
+ol.tl .dot{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);background:var(--surf);display:grid;place-items:center;font-size:12px}
+ol.tl .d .dot{background:var(--ok);border-color:var(--ok);color:#fff}ol.tl .c .dot{border-color:var(--acc);background:var(--acc-t)}
+ol.tl small{color:var(--mute);display:block}
+.hide{display:none}
+</style></head><body>
+<header><h1>Material request · 物料註冊申請</h1><span>Creates a material master (MM01) after approval</span>
+<div class="tabs"><button data-v="form" aria-pressed="true">New request</button><button data-v="list" aria-pressed="false">Search requests</button></div></header>
+<main id="app"></main>
+<script>
+const S={step:0,tab:"form",submitted:false,d:{type:"ROH",desc_zh:"",desc_en:"",uom:"",grp:"",plants:["1000"],views:["basic","purch","acct"],pur_grp:"",lead:"",price:"",pc:"S",val_class:"",reason:"",variants:false,chars:defChars(),off:{}},err:{}};
+const TYPES={ROH:"Raw material 原物料",HALB:"Semi-finished 半成品",FERT:"Finished 成品",HIBE:"Operating supplies 耗材"};
+const UOM=["PC 件","KG 公斤","M 公尺","L 公升","BOX 箱"],GRP=["001 Fasteners 扣件","002 Electronic 電子零件","003 Packaging 包材","004 Chemicals 化學品"];
+const PLANTS={1000:"1000 Taichung 台中",2000:"2000 Kaohsiung 高雄",3000:"3000 Hsinchu 新竹"};
+const VIEWS={basic:["Basic data 基本資料",1],purch:["Purchasing 採購","Needs buyer review"],mrp:["MRP 物料需求規劃","Planner"],acct:["Accounting 會計","Finance review"],qual:["Quality 品質","QA review"]};
+const EXIST=[{n:"10004821",t:"Hex bolt M8x30 六角螺栓",k:["bolt","螺栓","m8"]},{n:"10004822",t:"Hex bolt M10x40 六角螺栓",k:["bolt","螺栓","m10"]},{n:"10009310",t:"Resistor 10kΩ 電阻",k:["resistor","電阻","10k"]},{n:"10011205",t:"Carton 40x30x20 紙箱",k:["carton","紙箱","box"]}];
+const PROC=[{id:"MR-2026-0412",t:"Hex bolt M12x50 六角螺栓",who:"Lin · Procurement",s:"Pending MDM steward",k:["bolt","螺栓","m12"]},{id:"MR-2026-0425",t:"Carton 60x40x30 紙箱",who:"Wu · Logistics",s:"Pending Purchasing",k:["carton","紙箱","box"]},{id:"MR-2026-0431",t:"Resistor 4.7kΩ 電阻",who:"Chen · Electronics",s:"Pending Finance",k:["resistor","電阻","4.7k"]}];
+function inproc(){const q=(S.d.desc_zh+" "+S.d.desc_en).toLowerCase();if(q.trim().length<2)return[];return PROC.filter(e=>e.k.some(k=>q.includes(k)))}
+const STEPS=[["Basics","基本資料"],["Plants & views","工廠與視圖"],["Variants","變式"],["View details","視圖明細"],["Review","確認送出"]];
+const MY=[{id:"MR-2026-0415",t:"Hex bolt M16 series",s:"Draft",c:"",d:{desc_zh:"六角螺栓",desc_en:"Hex bolt",uom:"PC 件",grp:"001 Fasteners 扣件",views:["basic","purch"],plants:["1000","2000"],variants:true,chars:[{n:"Diameter 直徑",vals:["M16"]},{n:"Length 長度 (mm)",vals:["60","80","100"]}]}},{id:"MR-2026-0409",t:"Packing foam sheet",s:"Draft",c:"",d:{type:"HIBE",desc_zh:"包裝泡棉片",desc_en:"Packing foam sheet",uom:"PC 件",grp:"003 Packaging 包材",views:["basic","purch","acct"],pur_grp:"P03 General",lead:"5"}},{id:"MR-2026-0412",t:"Hex bolt M12x50",s:"Pending MDM steward",c:"w"},{id:"MR-2026-0407",t:"Thermal paste 5g",s:"Material 10013377 created",c:"o"},{id:"MR-2026-0399",t:"Carton 50x40x30",s:"Returned: add weight",c:"w",d:{desc_zh:"紙箱 50x40x30",desc_en:"Carton 50x40x30",uom:"PC 件",grp:"003 Packaging 包材",views:["basic","purch"],pur_grp:"P03 General",lead:"3"}}];
+const $=(s)=>document.querySelector(s);const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function dups(){const q=(S.d.desc_zh+" "+S.d.desc_en).toLowerCase();if(q.trim().length<2)return null;return EXIST.filter(e=>e.k.some(k=>q.includes(k)))}
+function field(k,label,html,hint){return `<div><label for="${k}">${label}${S.req&&S.req.includes(k)?" <i>*</i>":""}</label>${html}<div class="hint">${hint||""}</div><div class="msg" id="m_${k}">${S.err[k]||""}</div></div>`}
+function inp(k,t="text",ph=""){return `<input id="${k}" type="${t}" placeholder="${ph}" value="${esc(S.d[k])}" class="${S.err[k]?"bad":""}" data-k="${k}">`}
+function sel(k,opts){return `<select id="${k}" data-k="${k}" class="${S.err[k]?"bad":""}"><option value="">Select…</option>${opts.map(o=>`<option ${S.d[k]===o?"selected":""}>${o}</option>`).join("")}</select>`}
+function stepHTML(){const d=S.d;
+if(S.step===0){S.req=["desc_zh","desc_en","uom","grp"];return `<h2>What material do you need?</h2><p class="lead">Describe it first. We check for existing materials as you type.</p>
+<div class="grid">${field("type","Material type 物料類型",`<select id="type" data-k="type">${Object.entries(TYPES).map(([k,v])=>`<option value="${k}" ${d.type===k?"selected":""}>${k} · ${v}</option>`).join("")}</select>`)}
+${field("grp","Material group 物料群組",sel("grp",GRP))}
+${field("desc_zh","Description (中文)",inp("desc_zh","text","e.g. 六角螺栓 M8x30"),"Max 40 characters")}
+${field("desc_en","Description (English)",inp("desc_en","text","e.g. Hex bolt M8x30"),"Max 40 characters")}
+${field("uom","Base unit 基本單位",sel("uom",UOM))}</div>`}
+if(S.step===1){return `<h2>Where is it used?</h2><p class="lead">Pick plants and the views each team must maintain. Reviewers are assigned from your choice.</p>
+<h3 style="border:0;margin-top:0">Plants 工廠</h3><div class="chips">${Object.entries(PLANTS).map(([k,v])=>`<label class="chip"><input type="checkbox" data-plant="${k}" ${d.plants.includes(k)?"checked":""}>${v}</label>`).join("")}</div><div class="msg">${S.err.plants||""}</div>
+<h3>Views 視圖</h3><div class="chips">${Object.entries(VIEWS).map(([k,v])=>`<label class="chip"><input type="checkbox" data-view="${k}" ${d.views.includes(k)?"checked":""} ${k==="basic"?"disabled":""}>${v[0]} <small>${v[1]===1?"always":v[1]}</small></label>`).join("")}</div>`}
+if(S.step===2)return variantHTML();
+if(S.step===3){S.req=[];let h=`<h2>Fill in each view</h2><p class="lead">Only the views you selected appear here.${S.d.variants?" Every variant inherits these values.":""}</p>`;
+if(d.views.includes("purch")){S.req.push("pur_grp","lead");h+=`<h3 style="border:0;margin-top:0">Purchasing 採購</h3><div class="grid">${field("pur_grp","Purchasing group",sel("pur_grp",["P01 Fasteners","P02 Electronics","P03 General"]))}${field("lead","Planned delivery time (days)",inp("lead","number","7"))}</div>`}
+if(d.views.includes("mrp")){h+=`<h3>MRP 物料需求規劃</h3><div class="grid">${field("mrp","MRP type",sel("mrp",["PD Planned","VB Reorder point","ND None"]))}${field("safe","Safety stock",inp("safe","number","0"))}</div>`}
+if(d.views.includes("acct")){S.req.push("val_class","price");h+=`<h3>Accounting 會計</h3><div class="grid">${field("val_class","Valuation class",sel("val_class",["3000 Raw materials","3100 Operating supplies","7900 Finished goods"]))}${field("pc","Price control",`<select id="pc" data-k="pc"><option value="S" ${d.pc==="S"?"selected":""}>S · Standard</option><option value="V" ${d.pc==="V"?"selected":""}>V · Moving average</option></select>`)}${field("price","Estimated price (TWD)",inp("price","number","0.00"))}</div>`}
+if(d.views.includes("qual")){h+=`<h3>Quality 品質</h3><div class="grid">${field("insp","Inspection type",sel("insp",["01 Goods receipt","04 Goods receipt, sample"]))}</div>`}
+h+=`<h3>Business reason 申請原因</h3>${field("reason","Why is this needed?",`<textarea id="reason" rows="3" data-k="reason">${esc(d.reason)}</textarea>`)}`;return h}
+if(S.step===4){const miss=allErr(true);return `<h2>Review and submit</h2><p class="lead">${miss?"Fix the items marked below before submitting.":"Everything required is complete."}</p>
+<div class="wrap"><table><tr><th>Item</th><th>Value</th></tr>
+<tr><td>Type</td><td>${d.type} · ${TYPES[d.type]}</td></tr><tr><td>Description</td><td>${esc(d.desc_zh)}<br>${esc(d.desc_en)}</td></tr>
+<tr><td>Base unit · group</td><td>${esc(d.uom)} · ${esc(d.grp)}</td></tr><tr><td>Plants</td><td>${d.plants.map(p=>PLANTS[p]).join(", ")||"–"}</td></tr>
+<tr><td>Views</td><td>${d.views.map(v=>VIEWS[v][0]).join(", ")}</td></tr>${d.variants?`<tr><td>Variants</td><td>${selVariants().map(v=>esc(v.name)).join("<br>")}</td></tr>`:""}</table></div>
+<h3>Approval route</h3>${route().map(r=>`<span class="pill" style="margin:0 6px 6px 0">${r}</span>`).join("")}`}}
+function route(){const r=["Department manager"];if(S.d.views.includes("purch"))r.push("Purchasing");if(S.d.views.includes("acct"))r.push("Finance");if(S.d.views.includes("qual"))r.push("QA");r.push("MDM steward");return r}
+function validate(step){const e={};const d=S.d;
+if(step===0){if(!d.desc_zh.trim())e.desc_zh="Enter a Chinese description.";if(!d.desc_en.trim())e.desc_en="Enter an English description.";if(d.desc_zh.length>40)e.desc_zh="Keep it to 40 characters.";if(!d.uom)e.uom="Choose a base unit.";if(!d.grp)e.grp="Choose a material group."}
+if(step===1&&!d.plants.length)e.plants="Select at least one plant.";
+if(step===2&&d.variants){if(!d.chars.every(c=>c.vals.length))e.variants="Every characteristic needs at least one value.";else if(!selVariants().length)e.variants="Select at least one new variant to create."}
+if(step===3){if(d.views.includes("purch")){if(!d.pur_grp)e.pur_grp="Choose a purchasing group.";if(!d.lead)e.lead="Enter delivery days."}if(d.views.includes("acct")){if(!d.val_class)e.val_class="Choose a valuation class.";if(!d.price)e.price="Enter an estimated price."}}
+return e}
+function allErr(silent){let n=0;for(let i=0;i<4;i++)n+=Object.keys(validate(i)).length;return n}
+function summary(){const d=S.d,dp=dups();let dupHTML="";const ip=inproc();const ipCard=dp===null?"":`<div class="card"><h4>In approval 審核中</h4>${ip.length?ip.map(e=>`<div class="dup"><b>${e.id} · ${e.s}</b>${e.t}<div class="hint">Requested by ${e.who}</div><button data-open="${e.id}">View request</button></div>`).join("")+`<div class="hint">Someone is already requesting a similar material. Contact them before submitting a second one.</div>`:`<div class="okbox">No similar request in progress.</div>`}</div>`;
+if(dp===null)dupHTML=`<div class="hint">Type a description to check for duplicates.</div>`;
+else if(dp.length)dupHTML=dp.map(e=>`<div class="dup"><b>${e.n}</b>${e.t}<button data-extend="${e.n}">Extend to my plant instead</button></div>`).join("")+`<div class="hint">Extending an existing material is faster than creating a new one.</div>`;
+else dupHTML=`<div class="okbox">No similar material in SAP.</div>`;
+return `<div class="card"><h4>In SAP 已建立</h4>${dupHTML}</div>${ipCard}
+<div class="card"><h4>Draft</h4><dl><dt>Type</dt><dd>${d.type}</dd><dt>Name</dt><dd>${esc(d.desc_zh)||"–"}</dd><dt>Plants</dt><dd>${d.plants.join(", ")||"–"}</dd><dt>Variants</dt><dd>${d.variants?selVariants().length+" to create":"None"}</dd><dt>Reviewers</dt><dd>${route().length}</dd></dl></div>`}
+function trackHTML(){const st=[["Submitted","You · just now","d"],["Department manager","Approved","d"],["Purchasing","Reviewing","c"],["Finance","Waiting",""],["MDM steward","Waiting",""],["SAP material created",S.d.variants?selVariants().length+" material numbers assigned":"Material number assigned",""]];
+return `<section class="card" style="grid-column:2/4"><h2>Request ${S.editing||"MR-2026-0413"} submitted</h2><p class="lead">You will be notified at each step. Current stage: Purchasing.</p><ol class="tl">${st.map(s=>`<li class="${s[2]}"><span class="dot">${s[2]==="d"?"✓":""}</span><div><b>${s[0]}</b><small>${s[1]}</small></div></li>`).join("")}</ol><button class="btn" id="again">Start another request</button></section>`}
+function rows(){const q=(S.q||"").toLowerCase().trim();const all=[...MY.map(r=>({...r,who:"You"})),...PROC.filter(p=>!MY.some(m=>m.id===p.id)).map(p=>({...p,c:""}))];const f=all.filter(r=>!q||[r.id,r.t,r.who,r.s].join(" ").toLowerCase().includes(q));return f.length?f.map(r=>`<tr><td>${r.id}</td><td>${r.t}</td><td>${r.who}</td><td><span class="pill ${r.c}">${r.s}</span></td><td>${r.d?`<button class="btn" data-edit="${r.id}">${r.s==="Draft"?"Edit draft":"Edit & resubmit"}</button>`:`<span class="hint">${r.c==="o"?"Completed":"Locked in approval"}</span>`}</td></tr>`).join(""):`<tr><td colspan="5">No requests match “${esc(S.q)}”. Try a number, a name or a stage.</td></tr>`}
+function listHTML(){return `<section class="card" style="grid-column:1/-1"><h2>Search requests 搜尋申請</h2><p class="lead">Covers your requests and everything currently in approval. Drafts and returned requests can be edited.</p>${S.note?`<div class="okbox" style="margin-bottom:12px">${esc(S.note)}</div>`:""}<input id="q" type="text" placeholder="Search by name, number, requester or stage" value="${esc(S.q||"")}" style="max-width:420px;margin-bottom:12px"><div class="wrap"><table><thead><tr><th>Request</th><th>Material</th><th>Requester</th><th>Status</th><th>Action</th></tr></thead><tbody id="rows">${rows()}</tbody></table></div></section>`}
+function render(){const app=$("#app");
+document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===S.tab));
+if(S.tab==="list"){app.innerHTML=listHTML();$("#q").oninput=e=>{S.q=e.target.value;$("#rows").innerHTML=rows()};$("#rows").onclick=e=>{const b=e.target.closest("[data-edit]");if(b)loadDraft(MY.find(r=>r.id===b.dataset.edit))};S.note="";return}
+if(S.submitted){app.innerHTML=trackHTML();$("#again").onclick=()=>{S.submitted=false;S.step=0;S.d=blank();S.editing=null;render()};return}
+app.innerHTML=`<nav class="steps">${STEPS.map((s,i)=>`<button data-s="${i}" class="${i===S.step?"on":i<S.step?"done":""}">${s[0]}<small>${s[1]}</small></button>`).join("")}</nav>
+<section class="card">${S.editing?`<div class="dup" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px"><span><b>Editing ${S.editing}</b>${(MY.find(x=>x.id===S.editing)||{}).s||""}</span><button id="discard" style="margin-left:auto">Start a new request instead</button></div>`:""}${stepHTML()}<div class="bar"><button class="btn" id="back" ${S.step?"":"disabled"}>Back</button><button class="btn" id="save">Save draft</button><button class="btn p" id="next">${S.step===4?"Submit request":"Continue"}</button></div></section><aside>${summary()}</aside>`;
+bind()}
+function bind(){
+document.querySelectorAll("[data-k]").forEach(el=>{el.oninput=el.onchange=()=>{S.d[el.dataset.k]=el.value;delete S.err[el.dataset.k];if(["desc_zh","desc_en"].includes(el.dataset.k))$("aside").innerHTML=summary(),bindAside();const m=$("#m_"+el.dataset.k);if(m)m.textContent="";el.classList.remove("bad")}});
+document.querySelectorAll("[data-plant]").forEach(el=>el.onchange=()=>{const p=el.dataset.plant;S.d.plants=el.checked?[...S.d.plants,p]:S.d.plants.filter(x=>x!==p);delete S.err.plants;render()});
+document.querySelectorAll("[data-view]").forEach(el=>el.onchange=()=>{const v=el.dataset.view;S.d.views=el.checked?[...S.d.views,v]:S.d.views.filter(x=>x!==v);$("aside").innerHTML=summary()});
+document.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{const t=+b.dataset.s;if(t<=S.step){S.step=t;render()}});
+$("#back").onclick=()=>{S.step--;render()};$("#save").onclick=saveDraft;const vt=$("#vtog");if(vt)vt.onchange=()=>{S.d.variants=vt.checked;S.err={};render()};
+document.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{const[i,j]=b.dataset.rm.split(":").map(Number);S.d.chars[i].vals.splice(j,1);S.err={};render()});
+document.querySelectorAll("[data-add]").forEach(el=>el.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();const i=+el.dataset.add,v=el.value.trim();if(v&&!S.d.chars[i].vals.includes(v)){S.d.chars[i].vals.push(v);S.err={};render();const n=document.querySelector('[data-add="'+i+'"]');if(n)n.focus()}}});
+document.querySelectorAll("[data-vk]").forEach(el=>el.onchange=()=>{S.d.off[el.dataset.vk]=!el.checked;S.err={};render()});const dc=$("#discard");if(dc)dc.onclick=()=>{S.d=blank();S.editing=null;S.step=0;S.err={};render()};
+$("#next").onclick=()=>{if(S.step===4){if(allErr()){S.err={};for(let i=0;i<4;i++)Object.assign(S.err,validate(i));S.step=[0,1,2,3].find(i=>Object.keys(validate(i)).length);render();return}const r=MY.find(x=>x.id===S.editing);if(r){r.s="Pending Department manager";r.c="w";delete r.d}S.submitted=true;render();return}
+const e=validate(S.step);S.err=e;if(Object.keys(e).length){render();const f=document.querySelector(".bad");if(f)f.focus();return}S.step++;render()};
+bindAside()}
+function defChars(){return [{n:"Diameter 直徑",vals:["M8","M10"]},{n:"Length 長度 (mm)",vals:["30","40"]},{n:"Finish 表面處理",vals:["Zinc 鍍鋅"]}]}
+function combos(){const cs=S.d.chars.filter(c=>c.vals.length);if(!cs.length)return[];return cs.reduce((a,c)=>a.flatMap(x=>c.vals.map(v=>[...x,v])),[[]])}
+function vname(c){return (S.d.desc_en||"Material")+" "+(c.length>1?c[0]+"x"+c[1]+(c.length>2?" "+c.slice(2).join(" "):""):c[0])}
+function vlist(){const dp=dups()||[];return combos().map(c=>{const ex=c.length>1?dp.find(e=>e.t.toLowerCase().includes((c[0]+"x"+c[1]).toLowerCase())):null;const key=c.join("|");return{key,name:vname(c),ex,on:!ex&&!S.d.off[key]}})}
+function selVariants(){return S.d.variants?vlist().filter(v=>v.on):[]}
+function variantHTML(){const d=S.d;let h=`<h2>Does it come in variants? 變式</h2><p class="lead">Variants share this material's data. Each selected combination becomes its own material number.</p><label class="chip" style="display:inline-flex"><input type="checkbox" id="vtog" ${d.variants?"checked":""}>This material has variants</label>`;
+if(!d.variants)return h+`<p class="hint" style="margin-top:12px">Leave this unchecked to create a single material.</p>`;
+h+=`<h3>Characteristics 特性</h3>`+d.chars.map((c,i)=>`<div style="margin-bottom:12px"><label>${c.n}</label><div class="chips">${c.vals.map((v,j)=>`<span class="chip">${esc(v)}<button type="button" data-rm="${i}:${j}" aria-label="Remove ${esc(v)}" style="background:none;border:0;color:var(--mute);cursor:pointer;font-size:16px;line-height:1;padding:0">×</button></span>`).join("")}<input type="text" data-add="${i}" placeholder="Add a value, press Enter" style="width:200px"></div></div>`).join("");
+const vs=vlist();h+=`<h3>Variants to create 將建立 (${vs.filter(v=>v.on).length} of ${vs.length})</h3><div class="msg">${S.err.variants||""}</div><div class="wrap"><table><tr><th></th><th>Name</th><th>Status</th></tr>${vs.map(v=>`<tr><td><input type="checkbox" data-vk="${esc(v.key)}" ${v.on?"checked":""} ${v.ex?"disabled":""} aria-label="Include ${esc(v.name)}"></td><td>${esc(v.name)}</td><td>${v.ex?`<span class="pill w">Already in SAP ${v.ex.n}</span>`:`<span class="pill o">New</span>`}</td></tr>`).join("")}</table></div><div class="hint">Combinations that already exist in SAP are skipped automatically.</div>`;return h}
+function blank(){return {type:"ROH",desc_zh:"",desc_en:"",uom:"",grp:"",plants:["1000"],views:["basic","purch","acct"],pur_grp:"",lead:"",price:"",pc:"S",val_class:"",reason:"",variants:false,chars:defChars(),off:{}}}
+function loadDraft(r){S.d=Object.assign(blank(),JSON.parse(JSON.stringify(r.d)));S.editing=r.id;S.step=0;S.err={};S.submitted=false;S.tab="form";render();window.scrollTo(0,0)}
+function saveDraft(){const d=JSON.parse(JSON.stringify(S.d));let r=MY.find(x=>x.id===S.editing);if(!r){r={id:"MR-2026-0"+(416+MY.filter(x=>x.isNew).length),c:"",s:"Draft",isNew:1};MY.unshift(r);S.editing=r.id}r.t=d.desc_en||d.desc_zh||"Untitled draft";r.d=d;S.q=r.id;S.tab="list";S.note="Draft "+r.id+" saved. Search for it any time to keep editing.";render()}
+function bindAside(){document.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>{S.q=b.dataset.open;S.tab="list";render()});document.querySelectorAll("[data-extend]").forEach(b=>b.onclick=()=>{alert("Prototype: this would open an 'Extend material "+b.dataset.extend+"' request (MM01 with copy-from).")})}
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{S.tab=b.dataset.v;render()});
+render();
+</script></body></html>
